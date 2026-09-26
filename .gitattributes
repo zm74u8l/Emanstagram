@@ -1,0 +1,37 @@
+# Normalise line endings in the repository, and check them out as native.
+# Without this, Windows and Linux contributors can produce whole-file diffs
+# where only the line endings differ.
+* text=auto eol=lf
+
+*.java   text eol=lf
+*.kt     text eol=lf
+*.xml    text eol=lf
+*.yml    text eol=lf
+*.yaml   text eol=lf
+*.json   text eol=lf
+*.ts     text eol=lf
+*.tsx    text eol=lf
+*.css    text eol=lf
+*.html   text eol=lf
+*.md     text eol=lf
+*.sql    text eol=lf
+*.env    text eol=lf
+*.example text eol=lf
+
+# Binary assets: never diff or line-ending translate these.
+*.jpg    binary
+*.jpeg   binary
+*.png    binary
+*.gif    binary
+*.webp   binary
+*.ico    binary
+*.mp4    binary
+*.webm   binary
+*.mov    binary
+*.woff2  binary
+*.jar    binary
+*.pdf    binary
+
+# Lockfiles and generated bundles are large diffs; keep them out of the
+# language statistics and let GitHub collapse them.
+package-lock.json  linguist-generated=true -diff
