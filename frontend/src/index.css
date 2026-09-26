@@ -1,0 +1,141 @@
+@import 'tailwindcss';
+
+/* =====================================================================
+   DESIGN TOKENS
+   Everything visual is driven by CSS custom properties, so light/dark
+   and per-user accent colours work at runtime without a rebuild.
+   ===================================================================== */
+@theme {
+  --color-brand-50: oklch(0.97 0.014 254);
+  --color-brand-100: oklch(0.93 0.032 254);
+  --color-brand-200: oklch(0.88 0.06 254);
+  --color-brand-300: oklch(0.8 0.1 254);
+  --color-brand-400: oklch(0.7 0.16 254);
+  --color-brand-500: oklch(0.62 0.21 254);
+  --color-brand-600: oklch(0.55 0.23 254);
+  --color-brand-700: oklch(0.48 0.2 254);
+  --color-brand-800: oklch(0.42 0.16 254);
+  --color-brand-900: oklch(0.37 0.12 254);
+
+  --font-sans: 'Inter var', ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  --radius-card: 1rem;
+
+  --animate-shimmer: shimmer 1.8s ease-in-out infinite;
+  --animate-fade-in: fade-in 0.25s ease-out;
+  --animate-scale-in: scale-in 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes shimmer {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* --- semantic surface variables (light = default) --- */
+:root {
+  --bg: oklch(1 0 0);
+  --bg-elevated: oklch(0.985 0.002 254);
+  --bg-muted: oklch(0.96 0.004 254);
+  --border: oklch(0.91 0.005 254);
+  --fg: oklch(0.18 0.01 254);
+  --fg-muted: oklch(0.52 0.012 254);
+  --fg-subtle: oklch(0.68 0.01 254);
+  --ring: oklch(0.62 0.21 254);
+
+  /* Overridden per-user from the users.accent_color column. */
+  --accent: oklch(0.62 0.21 254);
+  --accent-fg: oklch(1 0 0);
+
+  --overlay: oklch(0 0 0 / 0.55);
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.04), 0 4px 12px oklch(0 0 0 / 0.06);
+  --shadow-pop: 0 8px 30px oklch(0 0 0 / 0.12);
+
+  color-scheme: light;
+}
+
+.dark {
+  --bg: oklch(0.16 0.008 254);
+  --bg-elevated: oklch(0.2 0.01 254);
+  --bg-muted: oklch(0.25 0.012 254);
+  --border: oklch(0.3 0.012 254);
+  --fg: oklch(0.97 0.004 254);
+  --fg-muted: oklch(0.7 0.012 254);
+  --fg-subtle: oklch(0.55 0.012 254);
+
+  --overlay: oklch(0 0 0 / 0.7);
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.3), 0 4px 12px oklch(0 0 0 / 0.35);
+  --shadow-pop: 0 8px 30px oklch(0 0 0 / 0.5);
+
+  color-scheme: dark;
+}
+
+/* Expose the tokens to Tailwind utilities, e.g. bg-surface, text-muted. */
+@theme inline {
+  --color-surface: var(--bg);
+  --color-surface-elevated: var(--bg-elevated);
+  --color-surface-muted: var(--bg-muted);
+  --color-line: var(--border);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* A visible focus ring is essential for keyboard accessibility;
+     never remove it without a replacement. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Respect the OS setting instead of animating regardless. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}

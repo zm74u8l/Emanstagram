@@ -1,0 +1,141 @@
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+  error:
+    include-message: always
+
+spring:
+  application:
+    name: emanstagram
+
+  # ---------------------------------------------------------------
+  # DATABASE
+  #
+  # PRODUCTION: Supabase Postgres via the Supavisor POOLER.
+  #   Use the port 6543 (transaction mode) connection string. Direct
+  #   connections are capped low on the free tier and a long-lived
+  #   Spring pool will exhaust them and start refusing connections.
+  #   ?sslmode=require is mandatory on Supabase.
+  #
+  # LOCAL DEV: run the `local` profile for a zero-setup in-memory DB.
+  #   mvnw spring-boot:run -Dspring-boot.run.profiles=local
+  # ---------------------------------------------------------------
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/postgres}
+    username: ${DATABASE_USERNAME:postgres}
+    password: ${DATABASE_PASSWORD:postgres}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      minimum-idle: 2
+      connection-timeout: 10000
+      max-lifetime: 1200000
+
+  jpa:
+    hibernate:
+      # Flyway owns the schema. ddl-auto must never write to it.
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 25
+        order_inserts: true
+        order_updates: true
+        default_batch_fetch_size: 50
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+  servlet:
+    multipart:
+      # Backstop gate #2 of 3 for uploads (client checks first).
+      max-file-size: 20MB
+      max-request-size: 220MB
+
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+  # ---------------------------------------------------------------
+  # SERVING THE BUILT FRONTEND
+  #
+  # In production the backend can also serve the compiled React bundle,
+  # so a single deployable covers API and UI. Point FRONTEND_DIST at
+  # the folder containing the Vite `dist` output. Left empty in dev,
+  # where Vite serves the UI on :5173.
+  # ---------------------------------------------------------------
+  web:
+    resources:
+      static-locations: ${FRONTEND_DIST:}
+  mvc:
+    # Client-side routing: unknown non-API paths fall through to
+    # index.html so deep links like /u/emma survive a hard refresh.
+    throw-exception-if-no-handler-found: false
+
+  threads:
+    virtual:
+      enabled: true
+
+# ---------------------------------------------------------------------
+# APP CONFIG (bound to EmanstagramProperties)
+# ---------------------------------------------------------------------
+emanstagram:
+  jwt:
+    # MUST be overridden in production. Generate with:
+    #   openssl rand -base64 48
+    secret: ${JWT_SECRET:dev-only-secret-change-me-0123456789abcdefghijklmnopqrstuvwxyz}
+    access-ttl: ${JWT_ACCESS_TTL:PT15M}
+    refresh-ttl: ${JWT_REFRESH_TTL:P30D}
+    issuer: emanstagram
+
+  cors:
+    # Comma-separated list of allowed frontend origins
+    allowed-origins: ${CORS_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+
+  storage:
+    # Supabase Storage
+    url: ${SUPABASE_URL:}
+    service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:}
+    buckets:
+      posts: ${SUPABASE_BUCKET_POSTS:posts}
+      avatars: ${SUPABASE_BUCKET_AVATAVARS:avatars}
+      stories: ${SUPABASE_BUCKET_STORIES:stories}
+      messages: ${SUPABASE_BUCKET_MESSAGES:messages}
+
+  media:
+    # Hard upload caps. Enforced in three places:
+    #   1. client (pre-flight + transcode)
+    #   2. server (MediaValidationService)
+    #   3. Spring multipart max-file-size above
+    max-image-bytes: ${MAX_IMAGE_BYTES:10485760}      # 10 MB
+    max-video-bytes: ${MAX_VIDEO_BYTES:15728640}      # 15 MB
+    max-avatar-bytes: ${MAX_AVATAR_BYTES:5242880}     # 5 MB
+    max-story-video-bytes: ${MAX_STORY_VIDEO_BYTES:20971520}  # 20 MB
+    max-carousel-items: 10
+    max-caption-length: 2200
+    max-comment-length: 1000
+    allowed-image-types: image/jpeg,image/png,image/webp,image/gif
+    allowed-video-types: video/mp4,video/webm,video/quicktime
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+
+logging:
+  level:
+    root: INFO
+    com.emanstagram: DEBUG
+    org.hibernate.SQL: WARN

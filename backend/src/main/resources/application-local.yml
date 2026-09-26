@@ -1,0 +1,42 @@
+# =====================================================================
+# LOCAL PROFILE
+#
+# Zero-setup development: in-memory H2, no Postgres, no Supabase.
+# Flyway is OFF because V1__init.sql uses Postgres-specific syntax
+# (citext, pgcrypto, native ENUMs, partial indexes) that H2 rejects.
+# Hibernate builds the schema from the entities instead, which is
+# enough for UI work. The real schema is only exercised against
+# Postgres in production.
+#
+#   mvnw spring-boot:run -Dspring-boot.run.profiles=local
+# =====================================================================
+spring:
+  datasource:
+    url: jdbc:h2:mem:emanstagram;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    database-platform: org.hibernate.dialect.H2Dialect
+
+  flyway:
+    enabled: false
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+emanstagram:
+  storage:
+    # Left blank on purpose: upload endpoints return a clear
+    # STORAGE_NOT_CONFIGURED error instead of crashing the app.
+    url: ${SUPABASE_URL:}
+    service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:}
+
+logging:
+  level:
+    com.emanstagram: DEBUG
