@@ -15,8 +15,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Verifies the whole application context wires up: security, JWT, JPA
  * repositories, storage and the WebSocket broker.
  *
- * <p>Runs on the H2 `local` profile so it needs no external services. The
- * Postgres schema itself is not exercised here, only the Java side.
+ * <p>Runs on the H2 {@code local} profile so it needs no external services.
+ * The Postgres schema itself is not exercised here, only the Java side.
+ *
+ * <p>{@code .env} loading lives in {@link DotEnvLoadingTests} because those
+ * tests boot extra contexts and would otherwise destroy the shared in-memory
+ * database this class relies on.
  */
 @SpringBootTest
 @ActiveProfiles("local")

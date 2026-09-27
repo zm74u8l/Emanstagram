@@ -87,6 +87,20 @@ cp .env.example .env      # fill in the values
 ../tools/apache-maven-3.9.16/bin/mvn spring-boot:run
 ```
 
+`.env` is read because `application.yml` opts in explicitly:
+
+```yaml
+spring:
+  config:
+    import: "optional:file:.env[.properties]"
+```
+
+Spring Boot does **not** read a `.env` file on its own. Without that import a
+correctly filled-in file is silently ignored and every secret falls back to
+the placeholder defaults. `optional:` keeps the app startable when no `.env`
+exists, which is what the `local` profile and CI depend on.
+`DotEnvLoadingTests` covers both directions.
+
 ### Which connection string to use
 
 Both work; they differ in host, port, and one important behaviour.

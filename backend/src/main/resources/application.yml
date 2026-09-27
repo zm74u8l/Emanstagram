@@ -8,6 +8,20 @@ spring:
   application:
     name: emanstagram
 
+  # -----------------------------------------------------------------
+  # LOADING backend/.env
+  #
+  # Spring Boot does NOT read a .env file on its own. Without this
+  # import, a perfectly good backend/.env would be silently ignored and
+  # every value would fall back to the defaults below, which fail at
+  # runtime with confusing errors.
+  #
+  # `optional:` means the app still starts when no .env exists, which is
+  # what the `local` profile and CI rely on.
+  # -----------------------------------------------------------------
+  config:
+    import: "optional:file:.env[.properties]"
+
   # ---------------------------------------------------------------
   # DATABASE
   #
