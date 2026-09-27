@@ -52,7 +52,7 @@ public class SupabaseStorageService {
 
         if (!configured) {
             log.warn("Supabase Storage is not configured. Media endpoints return a clear "
-                    + "error until SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set.");
+                    + "error until SUPABASE_URL and SUPABASE_SECRET_KEY are set.");
         }
     }
 

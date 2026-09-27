@@ -46,3 +46,7 @@ logs/
 
 # TypeScript incremental build info
 *.tsbuildinfo
+
+# Maven run output from spring-boot:run
+backend/*.log
+backend/*.err

@@ -139,7 +139,20 @@ emanstagram:
   storage:
     # Supabase Storage
     url: ${SUPABASE_URL:}
-    service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:}
+    # The elevated key, used server-side only.
+    #
+    # Named `service-role-key` for historic reasons: Supabase has deprecated
+    # the legacy `service_role` JWT in favour of `sb_secret_...`. Both carry
+    # identical privileges, so paste whichever your dashboard shows.
+    #
+    # This bypasses Row Level Security. Never expose it to a browser.
+    #
+    # Only one variable is accepted on purpose. A nested fallback such as
+    # ${NEW:${OLD:}} looks safer but is not: Spring treats an environment
+    # variable that is present-but-empty as a real value, so the fallback is
+    # never reached and a .env containing an empty SUPABASE_SECRET_KEY next
+    # to a filled-in legacy one silently loses the key.
+    service-role-key: ${SUPABASE_SECRET_KEY:}
     buckets:
       posts: ${SUPABASE_BUCKET_POSTS:posts}
       avatars: ${SUPABASE_BUCKET_AVATAVARS:avatars}

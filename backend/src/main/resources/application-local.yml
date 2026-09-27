@@ -31,11 +31,19 @@ spring:
       path: /h2-console
 
 emanstagram:
-  storage:
-    # Left blank on purpose: upload endpoints return a clear
-    # STORAGE_NOT_CONFIGURED error instead of crashing the app.
-    url: ${SUPABASE_URL:}
-    service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:}
+  # Deliberately does NOT redefine emanstagram.storage.
+  #
+  # A profile-specific file REPLACES whole YAML keys rather than merging them,
+  # so repeating the storage block here would shadow the definitions in
+  # application.yml. When this file still referenced the old
+  # SUPABASE_SERVICE_ROLE_KEY variable, the result was that the real key from
+  # .env was discarded and the app reported storage as unconfigured no matter
+  # what was configured correctly.
+  #
+  # application.yml already defaults both values to empty, which is exactly
+  # the behaviour wanted when no credentials are present: upload endpoints
+  # return a clear STORAGE_NOT_CONFIGURED error instead of crashing.
+  storage: {}
 
 logging:
   level:
