@@ -11,11 +11,23 @@ spring:
   # ---------------------------------------------------------------
   # DATABASE
   #
-  # PRODUCTION: Supabase Postgres via the Supavisor POOLER.
-  #   Use the port 6543 (transaction mode) connection string. Direct
-  #   connections are capped low on the free tier and a long-lived
-  #   Spring pool will exhaust them and start refusing connections.
-  #   ?sslmode=require is mandatory on Supabase.
+  # Two ways to reach Supabase Postgres. Pick ONE:
+  #
+  #  A) DIRECT CONNECTION (recommended for a long-running backend)
+  #     host: db.<ref>.supabase.co   port 5432
+  #     Prepared statements work normally.
+  #     Free tier allows only ~15 connections total, so keep
+  #     DB_POOL_SIZE at 5 or below.
+  #
+  #  B) SUPAVISOR CONNECTION POOLER (transaction mode)
+  #     host: aws-0-<region>.pooler.supabase.com   port 6543
+  #     NOTE the different hostname - it is NOT db.<ref>.supabase.co.
+  #     Transaction mode does NOT support prepared statements, so
+  #     DB_PREPARE_THRESHOLD must be 0 or every query fails with
+  #     'prepared statement "S_1" already exists'. The default below
+  #     handles that automatically.
+  #
+  # In both cases ?sslmode=require is mandatory.
   #
   # LOCAL DEV: run the `local` profile for a zero-setup in-memory DB.
   #   mvnw spring-boot:run -Dspring-boot.run.profiles=local
@@ -25,10 +37,25 @@ spring:
     username: ${DATABASE_USERNAME:postgres}
     password: ${DATABASE_PASSWORD:postgres}
     hikari:
-      maximum-pool-size: ${DB_POOL_SIZE:10}
-      minimum-idle: 2
+      # Free tier caps direct connections at roughly 15, shared with
+      # the dashboard and any other clients. 5 leaves headroom.
+      maximum-pool-size: ${DB_POOL_SIZE:5}
+      minimum-idle: 1
       connection-timeout: 10000
-      max-lifetime: 1200000
+      # Shorter than a typical socket lifetime so a recycled Supabase
+      # connection is never handed out after the server has dropped it.
+      max-lifetime: 900000
+      keepalive-time: 240000
+    # Properties passed straight through to the PostgreSQL JDBC driver.
+    data-source-properties:
+      # Transaction-mode pooling (port 6543) cannot support server-side
+      # prepared statements, so they are disabled by default. This is
+      # also safe on a direct connection (5432), costing only a little
+      # throughput. Set DB_PREPARE_THRESHOLD=-1 to re-enable them.
+      prepareThreshold: ${DB_PREPARE_THRESHOLD:0}
+      # Fail fast rather than hanging when the network drops mid-query.
+      socketTimeout: 30
+      connectTimeout: 10
 
   jpa:
     hibernate:

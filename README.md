@@ -87,9 +87,41 @@ cp .env.example .env      # fill in the values
 ../tools/apache-maven-3.9.16/bin/mvn spring-boot:run
 ```
 
-> **Use the Supavisor pooler URL (port 6543), not the direct connection
-> (port 5432).** The direct connection has a low connection cap that a
-> long-lived Spring pool will exhaust in production.
+### Which connection string to use
+
+Both work; they differ in host, port, and one important behaviour.
+
+| | Direct | Connection pooler |
+|---|---|---|
+| Host | `db.<ref>.supabase.co` | `aws-0-<region>.pooler.supabase.com` |
+| Port | 5432 | 6543 |
+| Prepared statements | work | **not supported** |
+| Intended for | long-running backends | serverless / many short connections |
+| Connection cap (free) | ~15 | much higher |
+
+A long-running Spring Boot server fits the direct connection, so that is the
+default in `.env.example`, with `DB_POOL_SIZE=5` to stay well inside the cap.
+
+If you use the pooler instead, leave `DB_PREPARE_THRESHOLD=0`. Transaction mode
+returns a connection to the pool after each transaction, which breaks
+server-side prepared statements and produces `prepared statement "S_1" already
+exists` on the first query. The config sets this to 0 by default so both work.
+
+`?sslmode=require` is mandatory in either case.
+
+### Storage buckets
+
+One-time setup. `posts`, `avatars` and `stories` are public so the CDN can
+serve them directly; `messages` is private and only reachable through
+short-lived signed URLs.
+
+```powershell
+./scripts/create-buckets.ps1 `
+    -SupabaseUrl https://<ref>.supabase.co `
+    -ServiceRoleKey sb_secret_xxx
+```
+
+The script is idempotent, so re-running it is safe.
 
 ### Frontend
 
