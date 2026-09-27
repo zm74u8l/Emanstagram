@@ -14,8 +14,16 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 -- ---------------------------------------------------------------------
 CREATE TABLE users (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    username        CITEXT       NOT NULL,
-    email           CITEXT       NOT NULL,
+
+    -- varchar, not citext. citext works on Postgres but Hibernate 6.6 has no
+    -- JavaType for it: the column reports as Types#OTHER and ddl-auto:
+    -- validate then refuses to start with
+    --   "found [citext (Types#OTHER)], but expecting [varchar(255)]".
+    -- The case-insensitive UNIQUE indexes below give the same uniqueness
+    -- guarantee without a type-level portability problem. The application
+    -- also lower-cases identifiers on write.
+    username        VARCHAR(30)  NOT NULL,
+    email           VARCHAR(255) NOT NULL,
     password_hash   VARCHAR(255) NOT NULL,
 
     display_name    VARCHAR(80),
@@ -46,9 +54,11 @@ CREATE TABLE users (
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Case-insensitive uniqueness for login identifiers
-CREATE UNIQUE INDEX ux_users_username_lower ON users (lower(username::text));
-CREATE UNIQUE INDEX ux_users_email_lower    ON users (lower(email::text));
+-- Case-insensitive uniqueness for login identifiers. The application also
+-- lower-cases on write, so these indexes are a safety net rather than the
+-- only line of defence.
+CREATE UNIQUE INDEX ux_users_username_lower ON users (lower(username));
+CREATE UNIQUE INDEX ux_users_email_lower    ON users (lower(email));
 
 -- ---------------------------------------------------------------------
 -- REFRESH TOKENS (rotation + revocation on logout)
@@ -140,6 +150,38 @@ CREATE INDEX ix_post_likes_post ON post_likes (post_id);
 -- ---------------------------------------------------------------------
 CREATE TABLE comments (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    post_id     UUID        NOT NULL REFERENCES posts (id) ON DELETE CASCADE,
+    author_id   UUID        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    -- NULL means a top-level comment; otherwise this is a reply, which
+    -- allows unlimited nesting while keeping the read query flat.
+    parent_id   UUID        REFERENCES comments (id) ON DELETE CASCADE,
+    body        VARCHAR(1000) NOT NULL,
+    like_count  INTEGER     NOT NULL DEFAULT 0,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    edited_at   TIMESTAMPTZ
+);
+
+CREATE INDEX ix_comments_post ON comments (post_id, created_at DESC);
+CREATE INDEX ix_comments_parent ON comments (parent_id);
+
+CREATE TABLE comment_likes (
+    user_id     UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    comment_id  UUID NOT NULL REFERENCES comments (id) ON DELETE CASCADE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, comment_id)
+);
+
+CREATE INDEX ix_comment_likes_comment ON comment_likes (comment_id);
+
+-- ---------------------------------------------------------------------
+-- SAVED POSTS (private collections)
+-- ---------------------------------------------------------------------
+CREATE TABLE saved_posts (
+    user_id     UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    post_id     UUID NOT NULL REFERENCES posts (id) ON DELETE CASCADE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, post_id)
+);
 
 -- ---------------------------------------------------------------------
 -- STORIES (ephemeral, 24h)
@@ -229,34 +271,6 @@ CREATE TABLE message_receipts (
     PRIMARY KEY (message_id, user_id)
 );
 
-    post_id     UUID NOT NULL REFERENCES posts (id) ON DELETE CASCADE,
-    author_id   UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-    parent_id   UUID REFERENCES comments (id) ON DELETE CASCADE,
-    body        VARCHAR(1000) NOT NULL,
-    like_count  INTEGER NOT NULL DEFAULT 0,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    edited_at   TIMESTAMPTZ
-);
-
-CREATE INDEX ix_comments_post ON comments (post_id, created_at DESC);
-CREATE INDEX ix_comments_parent ON comments (parent_id);
-
-CREATE TABLE comment_likes (
-    user_id     UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-    comment_id  UUID NOT NULL REFERENCES comments (id) ON DELETE CASCADE,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (user_id, comment_id)
-);
-
--- ---------------------------------------------------------------------
--- SAVED POSTS (private collections)
--- ---------------------------------------------------------------------
-CREATE TABLE saved_posts (
-    user_id     UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-    post_id     UUID NOT NULL REFERENCES posts (id) ON DELETE CASCADE,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (user_id, post_id)
-
 -- ---------------------------------------------------------------------
 -- NOTIFICATIONS
 -- ---------------------------------------------------------------------
@@ -309,4 +323,3 @@ CREATE TABLE reports (
 
 CREATE INDEX ix_reports_unresolved ON reports (created_at DESC) WHERE resolved = FALSE;
 
-);

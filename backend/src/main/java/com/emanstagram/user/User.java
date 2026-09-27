@@ -25,6 +25,18 @@ public class User {
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
+    /**
+     * Plain varchar, paired with a case-insensitive UNIQUE index in the
+     * schema.
+     *
+     * <p>The schema originally used Postgres {@code citext} here. That type
+     * has no JavaType in Hibernate 6.6, so it reports as {@code Types#OTHER}
+     * and {@code ddl-auto: validate} refuses to start with "found [citext
+     * (Types#OTHER)], but expecting [varchar(255)]". Switching the column to
+     * varchar keeps the same case-insensitive uniqueness guarantee via
+     * {@code ux_users_username_lower}, and works on both Postgres and the H2
+     * profile the tests use.
+     */
     @Column(name = "username", nullable = false, length = 30)
     private String username;
 

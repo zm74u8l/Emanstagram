@@ -23,6 +23,8 @@ spring:
     database-platform: org.hibernate.dialect.H2Dialect
 
   flyway:
+    # Off here, so clean-disabled is irrelevant in this profile. Resetting a
+    # real database is done against Postgres with FLYWAY_CLEAN_DISABLED=false.
     enabled: false
 
   h2:
