@@ -10,7 +10,14 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -75,6 +82,40 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.PAYLOAD_TOO_LARGE, "FILE_TOO_LARGE",
                 "That file is too large. Please use a smaller file or compress it first.",
                 null, request);
+    }
+
+    /**
+     * Malformed input that never reached a controller: a non-UUID path id,
+     * a missing multipart part, unparseable JSON. These are client mistakes,
+     * so they get a 400 rather than falling through to the 500 handler.
+     */
+    @ExceptionHandler({
+            MethodArgumentTypeMismatchException.class,
+            MissingServletRequestParameterException.class,
+            MissingServletRequestPartException.class,
+            HttpMessageNotReadableException.class,
+            MultipartException.class
+    })
+    public ResponseEntity<ApiErrorBody> handleBadInput(Exception ex, HttpServletRequest request) {
+        String message = switch (ex) {
+            case MissingServletRequestParameterException m -> "Missing required field: " + m.getParameterName() + ".";
+            case MissingServletRequestPartException m -> "Missing required field: " + m.getRequestPartName() + ".";
+            case MethodArgumentTypeMismatchException m -> "Invalid value for " + m.getName() + ".";
+            default -> "The request could not be read.";
+        };
+        return build(HttpStatus.BAD_REQUEST, "BAD_REQUEST", message, null, request);
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiErrorBody> handleNoRoute(NoResourceFoundException ex, HttpServletRequest request) {
+        return build(HttpStatus.NOT_FOUND, "NOT_FOUND", "There's nothing here.", null, request);
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiErrorBody> handleMethod(HttpRequestMethodNotSupportedException ex,
+                                                     HttpServletRequest request) {
+        return build(HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED",
+                "That action isn't supported here.", null, request);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
