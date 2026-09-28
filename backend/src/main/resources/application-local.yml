@@ -12,7 +12,13 @@
 # =====================================================================
 spring:
   datasource:
-    url: jdbc:h2:mem:emanstagram;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
+    # A unique database per application context. With a fixed name, every
+    # context in the test JVM shared one database, and create-drop on a
+    # closing context dropped the tables under the others. Whether that broke
+    # anything depended on test class order, which differs between Windows
+    # and Linux: green locally, red on CI. Spring logs the actual URL at
+    # startup, for the H2 console.
+    url: jdbc:h2:mem:emanstagram-${random.uuid};DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
     driver-class-name: org.h2.Driver
     username: sa
     password: ""

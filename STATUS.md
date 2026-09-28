@@ -122,7 +122,7 @@ account, password, sessions, blocked) · moderation queue · 404.
 
 | Check | Result |
 |---|---|
-| `mvn test` (H2, MockMvc, storage mocked) | ✅ 46 passing |
+| `mvn test` (H2, MockMvc, storage mocked) | ✅ 46 passing, in any class order, and on GitHub Actions (Linux) |
 | Real STOMP socket test (auth refused without token, live delivery, foreign subscription rejected) | ✅ |
 | Flyway V2 on Supabase + `ddl-auto: validate` | ✅ |
 | Live API pass against Supabase | ✅ 38/38, including signed URLs on the private bucket, and confirming that bucket is *not* publicly readable |
@@ -152,8 +152,8 @@ real phone rather than an emulated viewport.
 
 - [ ] **Deploy.** Railway/Fly for the backend (not serverless:
       WebSockets), Vercel/Cloudflare for the frontend.
-- [ ] **CI has never run** on GitHub. The workflow is unchanged and
-      should pass, but that is unverified.
+- [ ] Bump the CI actions (`checkout`, `setup-java`) to versions that
+      run on Node 24; GitHub flags the current ones as deprecated.
 - [ ] Hashtags are read out of captions (fine at this scale); a
       `post_tags` table would be the upgrade path.
 - [ ] Presence and the STOMP broker are in-memory, which is correct for
@@ -188,3 +188,8 @@ code.
     test.
 13. **Safe-area padding zeroed the chat composer's bottom padding**
     (a later CSS rule won). Only visible in a screenshot.
+14. **Tests passed on Windows and failed on CI.** Every test context
+    shared one in-memory H2 database, and a closing context's
+    `create-drop` removed the tables under the others. Whether that hurt
+    depended on class order, which differs between filesystems. Each
+    context now gets its own database.
