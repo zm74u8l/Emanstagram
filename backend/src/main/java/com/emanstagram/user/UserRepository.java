@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -29,6 +31,17 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             ORDER BY u.followerCount DESC, u.username ASC
             """)
     Page<User> search(@Param("q") String query, @Param("currentUser") UUID currentUser, Pageable pageable);
+
+    /** Most-followed accounts the viewer doesn't follow yet and isn't blocked from. */
+    @Query("""
+            SELECT u FROM User u
+            WHERE u.id <> :me
+              AND u.id NOT IN (SELECT f.followeeId FROM Follow f WHERE f.followerId = :me)
+              AND u.id NOT IN :hidden
+            ORDER BY u.followerCount DESC, u.postCount DESC, u.createdAt DESC
+            """)
+    List<User> suggestions(@Param("me") UUID me, @Param("hidden") Collection<UUID> hidden,
+                           Pageable pageable);
 
     /**
      * Atomic counter maintenance. Kept as bulk updates so a popular account

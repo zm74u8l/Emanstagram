@@ -25,8 +25,9 @@ public class SpaForwardingController {
      * is not an option here.
      */
     @GetMapping(path = {
-            "/", "/login", "/register", "/explore", "/messages",
-            "/notifications", "/create", "/settings", "/u/{username}", "/p/{postId}"
+            "/", "/login", "/register", "/explore", "/messages", "/messages/{conversationId}",
+            "/notifications", "/create", "/settings", "/saved", "/admin",
+            "/u/{username}", "/p/{postId}", "/t/{tag}", "/stories/{username}"
     })
     public ModelAndView forward() {
         return new ModelAndView("forward:/index.html");

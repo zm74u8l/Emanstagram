@@ -8,6 +8,7 @@ import com.emanstagram.user.RefreshToken;
 import com.emanstagram.user.RefreshTokenRepository;
 import com.emanstagram.user.User;
 import com.emanstagram.user.UserRepository;
+import com.emanstagram.user.dto.UserDtos.ChangePasswordRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -137,6 +138,24 @@ public class AuthService {
     @Transactional
     public void logoutAll(UUID userId) {
         refreshTokenRepository.revokeAllForUser(userId);
+    }
+
+    /**
+     * Changes the password and revokes every refresh token, so a session on a
+     * lost or shared device ends. The caller gets a new pair and stays signed in.
+     */
+    @Transactional
+    public TokenResponse changePassword(UUID userId, ChangePasswordRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> ApiException.unauthorized("UNAUTHENTICATED", "You need to sign in to do that."));
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            throw ApiException.badRequest("WRONG_PASSWORD", "Your current password is incorrect.");
+        }
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        userRepository.saveAndFlush(user);
+        refreshTokenRepository.revokeAllForUser(userId);
+        log.info("Password changed for {}; other sessions revoked", user.getUsername());
+        return issueTokens(userRepository.findById(userId).orElseThrow());
     }
 
     @Transactional(readOnly = true)

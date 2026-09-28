@@ -66,7 +66,10 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/register",
                                  "/api/auth/login",
                                  "/api/auth/refresh",
+                                 "/api/auth/username-available",
                                  "/api/config/public").permitAll()
+                // Signed-out login mosaic: public posts only.
+                .requestMatchers(HttpMethod.GET, "/api/public/**").permitAll()
                 .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
                 .requestMatchers("/ws/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
@@ -77,9 +80,9 @@ public class SecurityConfig {
                 .requestMatchers("/", "/index.html", "/assets/**", "/favicon.svg",
                                  "/manifest.webmanifest", "/sw.js").permitAll()
                 .requestMatchers(HttpMethod.GET,
-                        "/login", "/register", "/explore", "/messages",
-                        "/notifications", "/create", "/settings",
-                        "/u/*", "/p/*")
+                        "/login", "/register", "/explore", "/messages", "/messages/*",
+                        "/notifications", "/create", "/settings", "/saved", "/admin",
+                        "/u/*", "/p/*", "/t/*", "/stories/*")
                     .permitAll()
                 // --- authenticated ---
                 .anyRequest().authenticated()
