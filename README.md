@@ -32,7 +32,9 @@ JPA · Flyway · PostgreSQL 16 · WebSocket (STOMP)
 **Frontend** — React 19 · TypeScript · Vite 6 · Tailwind CSS v4 · TanStack
 Query · Zustand · STOMP.js · lucide-react · Geist + Instrument Serif (self-hosted)
 
-**Media** — Supabase Storage (public CDN buckets + signed URLs for DMs)
+**Media** — Cloudflare R2 or any S3-compatible store (`STORAGE_PROVIDER=s3`), or
+Supabase Storage (`STORAGE_PROVIDER=supabase`). Public bucket for posts,
+avatars and stories; private bucket with signed URLs for DM attachments.
 
 ## Layout
 

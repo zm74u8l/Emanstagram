@@ -10,7 +10,7 @@ import com.emanstagram.realtime.PresenceTracker;
 import com.emanstagram.realtime.RealtimePublisher;
 import com.emanstagram.social.AccessPolicy;
 import com.emanstagram.storage.MediaValidationService;
-import com.emanstagram.storage.SupabaseStorageService;
+import com.emanstagram.storage.StorageService;
 import com.emanstagram.user.User;
 import com.emanstagram.user.UserRepository;
 import com.emanstagram.user.UserViews;
@@ -48,7 +48,7 @@ public class ChatService {
     private final UserRepository users;
     private final UserViews userViews;
     private final AccessPolicy access;
-    private final SupabaseStorageService storage;
+    private final StorageService storage;
     private final MediaValidationService validation;
     private final RealtimePublisher realtime;
     private final PresenceTracker presence;
@@ -57,7 +57,7 @@ public class ChatService {
     public ChatService(ConversationRepository conversations, ConversationMemberRepository members,
                        DirectConversationKeyRepository directKeys, MessageRepository messages,
                        UserRepository users, UserViews userViews, AccessPolicy access,
-                       SupabaseStorageService storage, MediaValidationService validation,
+                       StorageService storage, MediaValidationService validation,
                        RealtimePublisher realtime, PresenceTracker presence,
                        PlatformTransactionManager txManager) {
         this.conversations = conversations;
@@ -255,7 +255,7 @@ public class ChatService {
 
         String key;
         try {
-            key = storage.upload(SupabaseStorageService.MESSAGES, conversationId, file.getBytes(),
+            key = storage.upload(StorageService.MESSAGES, conversationId, file.getBytes(),
                     file.getContentType(), validation.extensionFor(file.getContentType()));
         } catch (IOException ex) {
             throw ApiException.badRequest("UPLOAD_UNREADABLE", "That file could not be read. Please try again.");

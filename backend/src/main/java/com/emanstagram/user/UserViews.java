@@ -1,7 +1,7 @@
 package com.emanstagram.user;
 
 import com.emanstagram.social.FollowRepository;
-import com.emanstagram.storage.SupabaseStorageService;
+import com.emanstagram.storage.StorageService;
 import com.emanstagram.user.dto.UserDtos.UserSummary;
 import org.springframework.stereotype.Component;
 
@@ -14,11 +14,11 @@ import java.util.*;
 @Component
 public class UserViews {
 
-    private final SupabaseStorageService storage;
+    private final StorageService storage;
     private final FollowRepository follows;
     private final UserRepository users;
 
-    public UserViews(SupabaseStorageService storage, FollowRepository follows, UserRepository users) {
+    public UserViews(StorageService storage, FollowRepository follows, UserRepository users) {
         this.storage = storage;
         this.follows = follows;
         this.users = users;

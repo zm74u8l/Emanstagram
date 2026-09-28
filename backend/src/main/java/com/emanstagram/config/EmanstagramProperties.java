@@ -23,8 +23,26 @@ public record EmanstagramProperties(
     public record Cors(List<String> allowedOrigins) {
     }
 
-    public record Storage(String url, String serviceRoleKey, Buckets buckets) {
+    /**
+     * Media storage. {@code provider} picks the backend: {@code supabase}
+     * (Supabase Storage, the original setup) or {@code s3} (any
+     * S3-compatible store, e.g. Cloudflare R2, which has no egress fees).
+     */
+    public record Storage(String provider, String url, String serviceRoleKey, Buckets buckets, S3 s3) {
         public record Buckets(String posts, String avatars, String stories, String messages) {
+        }
+
+        /**
+         * @param publicBucket  holds posts/, avatars/ and stories/, readable by anyone
+         * @param privateBucket holds messages/, only reachable through signed URLs
+         * @param publicBaseUrl where the public bucket is served from: an R2
+         *                      custom domain or r2.dev URL, a CDN, or a MinIO URL
+         * @param pathStyle     true for MinIO and most self-hosted stores;
+         *                      R2 accepts either
+         */
+        public record S3(String endpoint, String region, String accessKeyId, String secretAccessKey,
+                         String publicBucket, String privateBucket, String publicBaseUrl,
+                         boolean pathStyle) {
         }
     }
 

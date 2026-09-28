@@ -2,7 +2,7 @@ package com.emanstagram.post;
 
 import com.emanstagram.post.dto.PostDtos.MediaItem;
 import com.emanstagram.post.dto.PostDtos.PostResponse;
-import com.emanstagram.storage.SupabaseStorageService;
+import com.emanstagram.storage.StorageService;
 import com.emanstagram.user.UserViews;
 import org.springframework.stereotype.Component;
 
@@ -22,11 +22,11 @@ public class PostAssembler {
     private final PostLikeRepository likes;
     private final SavedPostRepository saves;
     private final UserViews userViews;
-    private final SupabaseStorageService storage;
+    private final StorageService storage;
 
     public PostAssembler(PostMediaRepository media, PostLikeRepository likes,
                          SavedPostRepository saves, UserViews userViews,
-                         SupabaseStorageService storage) {
+                         StorageService storage) {
         this.media = media;
         this.likes = likes;
         this.saves = saves;

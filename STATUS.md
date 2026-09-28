@@ -14,7 +14,7 @@ real chat, real profiles, and media stored outside the database.
 |---|---|
 | **Phase** | Feature-complete for the agreed scope. Not deployed. |
 | **Database** | ✅ Supabase, schema at V2. Every table except `message_receipts` is mapped and validated. |
-| **Storage** | ✅ Uploads, CDN reads, signed URLs (private bucket) and deletes all verified live. |
+| **Storage** | ✅ Two providers behind one interface: Supabase Storage (verified live) and S3-compatible for Cloudflare R2 (verified end to end against an S3 server; not yet against R2 itself). |
 | **Backend** | ✅ ~70 endpoints + STOMP WebSocket. 46 automated tests passing. |
 | **Frontend** | ✅ Redesigned. Every page is real, driven in Chromium against the live backend. |
 | **Deployed** | ❌ Local only. |

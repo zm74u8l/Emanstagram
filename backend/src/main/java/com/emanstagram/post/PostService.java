@@ -14,7 +14,7 @@ import com.emanstagram.notification.NotificationService;
 import com.emanstagram.post.dto.PostDtos.*;
 import com.emanstagram.social.AccessPolicy;
 import com.emanstagram.storage.MediaValidationService;
-import com.emanstagram.storage.SupabaseStorageService;
+import com.emanstagram.storage.StorageService;
 import com.emanstagram.user.User;
 import com.emanstagram.user.UserRepository;
 import com.emanstagram.user.UserViews;
@@ -49,7 +49,7 @@ public class PostService {
     private final PostAssembler assembler;
     private final AccessPolicy access;
     private final MediaValidationService validation;
-    private final SupabaseStorageService storage;
+    private final StorageService storage;
     private final NotificationService notifications;
     private final UserViews userViews;
     private final ObjectMapper json;
@@ -59,7 +59,7 @@ public class PostService {
                        CommentRepository comments, CommentLikeRepository commentLikes,
                        NotificationRepository notificationRows, ReportRepository reports,
                        UserRepository users, PostAssembler assembler, AccessPolicy access,
-                       MediaValidationService validation, SupabaseStorageService storage,
+                       MediaValidationService validation, StorageService storage,
                        NotificationService notifications, UserViews userViews,
                        ObjectMapper json, PlatformTransactionManager txManager) {
         this.posts = posts;
@@ -116,7 +116,7 @@ public class PostService {
         List<String> uploaded = new ArrayList<>();
         try {
             for (MultipartFile file : files) {
-                uploaded.add(storage.upload(SupabaseStorageService.POSTS, author.getId(), file.getBytes(),
+                uploaded.add(storage.upload(StorageService.POSTS, author.getId(), file.getBytes(),
                         file.getContentType(), validation.extensionFor(file.getContentType())));
             }
 

@@ -1,7 +1,7 @@
 package com.emanstagram.config;
 
 import com.emanstagram.storage.MediaValidationService;
-import com.emanstagram.storage.SupabaseStorageService;
+import com.emanstagram.storage.StorageService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,10 +23,10 @@ import java.util.Map;
 public class PublicConfigController {
 
     private final EmanstagramProperties properties;
-    private final SupabaseStorageService storageService;
+    private final StorageService storageService;
 
     public PublicConfigController(EmanstagramProperties properties,
-                                  SupabaseStorageService storageService) {
+                                  StorageService storageService) {
         this.properties = properties;
         this.storageService = storageService;
     }

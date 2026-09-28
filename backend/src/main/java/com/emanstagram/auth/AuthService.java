@@ -3,7 +3,7 @@ package com.emanstagram.auth;
 import com.emanstagram.auth.dto.AuthDtos.*;
 import com.emanstagram.common.ApiException;
 import com.emanstagram.common.CurrentUser;
-import com.emanstagram.storage.SupabaseStorageService;
+import com.emanstagram.storage.StorageService;
 import com.emanstagram.user.RefreshToken;
 import com.emanstagram.user.RefreshTokenRepository;
 import com.emanstagram.user.User;
@@ -29,14 +29,14 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
-    private final SupabaseStorageService storageService;
+    private final StorageService storageService;
     private final CurrentUser currentUser;
 
     public AuthService(UserRepository userRepository,
                        RefreshTokenRepository refreshTokenRepository,
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService,
-                       SupabaseStorageService storageService,
+                       StorageService storageService,
                        CurrentUser currentUser) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;

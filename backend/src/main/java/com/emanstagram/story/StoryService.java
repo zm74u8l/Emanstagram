@@ -7,7 +7,7 @@ import com.emanstagram.social.AccessPolicy;
 import com.emanstagram.social.FollowRepository;
 import com.emanstagram.social.SocialService;
 import com.emanstagram.storage.MediaValidationService;
-import com.emanstagram.storage.SupabaseStorageService;
+import com.emanstagram.storage.StorageService;
 import com.emanstagram.user.User;
 import com.emanstagram.user.UserRepository;
 import com.emanstagram.user.UserViews;
@@ -57,13 +57,13 @@ public class StoryService {
     private final UserRepository users;
     private final UserViews userViews;
     private final AccessPolicy access;
-    private final SupabaseStorageService storage;
+    private final StorageService storage;
     private final MediaValidationService validation;
     private final TransactionTemplate tx;
 
     public StoryService(StoryRepository stories, StoryViewRepository views, FollowRepository follows,
                         UserRepository users, UserViews userViews, AccessPolicy access,
-                        SupabaseStorageService storage, MediaValidationService validation,
+                        StorageService storage, MediaValidationService validation,
                         PlatformTransactionManager txManager) {
         this.stories = stories;
         this.views = views;
@@ -90,7 +90,7 @@ public class StoryService {
 
         String key;
         try {
-            key = storage.upload(SupabaseStorageService.STORIES, me.getId(), file.getBytes(),
+            key = storage.upload(StorageService.STORIES, me.getId(), file.getBytes(),
                     file.getContentType(), validation.extensionFor(file.getContentType()));
         } catch (IOException ex) {
             throw ApiException.badRequest("UPLOAD_UNREADABLE", "That file could not be read. Please try again.");

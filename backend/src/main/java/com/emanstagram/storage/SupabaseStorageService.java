@@ -9,6 +9,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -33,14 +34,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * bucket without a second column.
  */
 @Service
-public class SupabaseStorageService {
+@ConditionalOnProperty(name = "emanstagram.storage.provider", havingValue = "supabase", matchIfMissing = true)
+public class SupabaseStorageService implements StorageService {
 
     private static final Logger log = LoggerFactory.getLogger(SupabaseStorageService.class);
 
-    public static final String POSTS = "posts";
-    public static final String AVATARS = "avatars";
-    public static final String STORIES = "stories";
-    public static final String MESSAGES = "messages";
 
     /** Re-sign a cached URL once less than this much of its lifetime is left. */
     private static final Duration RESIGN_MARGIN = Duration.ofMinutes(10);
@@ -92,6 +90,7 @@ public class SupabaseStorageService {
      * Public CDN URL for a storage key. Returns null when no key is set or
      * Supabase is not configured, so callers can fall back to an identicon.
      */
+    @Override
     public String publicUrl(String storageKey) {
         if (storageKey == null || storageKey.isBlank() || !configured) {
             return null;
@@ -104,6 +103,7 @@ public class SupabaseStorageService {
      * Time-limited signed URL, used for private buckets (chat attachments).
      * Falls back to the public URL for public buckets.
      */
+    @Override
     public String signedUrl(String storageKey, Duration ttl) {
         if (storageKey == null || storageKey.isBlank()) {
             return null;
@@ -119,6 +119,7 @@ public class SupabaseStorageService {
      * cached until shortly before they expire, so re-reading a thread costs
      * no storage calls at all.
      */
+    @Override
     public Map<String, String> signedUrls(Collection<String> storageKeys, Duration ttl) {
         Map<String, String> result = new HashMap<>();
         if (!configured || storageKeys == null || storageKeys.isEmpty()) {
@@ -183,14 +184,11 @@ public class SupabaseStorageService {
      * @param kind  one of {@link #POSTS}, {@link #AVATARS}, {@link #STORIES}, {@link #MESSAGES}
      * @param owner the user or conversation id the object belongs to
      */
+    @Override
     public String upload(String kind, UUID owner, byte[] data, String contentType, String extension) {
         requireConfigured();
 
-        String key = "%s/%s/%s.%s".formatted(
-                kind,
-                owner,
-                UUID.randomUUID(),
-                (extension == null || extension.isBlank()) ? "bin" : extension);
+        String key = StorageService.newKey(kind, owner, extension);
         String bucket = bucketForKind(kind);
 
         try {
@@ -212,6 +210,7 @@ public class SupabaseStorageService {
     }
 
     /** Best-effort delete; a missing object is not treated as an error. */
+    @Override
     public void delete(String storageKey) {
         if (storageKey == null || storageKey.isBlank() || !configured) {
             return;
@@ -220,6 +219,7 @@ public class SupabaseStorageService {
     }
 
     /** Best-effort bulk delete, one request per bucket. */
+    @Override
     public void deleteAll(Collection<String> storageKeys) {
         if (!configured || storageKeys == null || storageKeys.isEmpty()) {
             return;
@@ -245,6 +245,7 @@ public class SupabaseStorageService {
         });
     }
 
+    @Override
     public void requireConfigured() {
         if (!configured) {
             throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
@@ -253,6 +254,7 @@ public class SupabaseStorageService {
         }
     }
 
+    @Override
     public boolean isConfigured() {
         return configured;
     }
@@ -278,8 +280,7 @@ public class SupabaseStorageService {
     }
 
     private static String kindOf(String storageKey) {
-        int slash = storageKey.indexOf('/');
-        return slash > 0 ? storageKey.substring(0, slash) : POSTS;
+        return StorageService.kindOf(storageKey);
     }
 
     /** Content buckets are public and CDN-cached; only `messages` is private. */

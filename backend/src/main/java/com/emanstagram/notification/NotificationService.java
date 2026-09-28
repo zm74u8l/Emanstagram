@@ -8,7 +8,7 @@ import com.emanstagram.post.PostMediaRepository;
 import com.emanstagram.realtime.RealtimePublisher;
 import com.emanstagram.social.BlockRepository;
 import com.emanstagram.social.FollowRepository;
-import com.emanstagram.storage.SupabaseStorageService;
+import com.emanstagram.storage.StorageService;
 import com.emanstagram.user.User;
 import com.emanstagram.user.UserRepository;
 import com.emanstagram.user.UserViews;
@@ -49,13 +49,13 @@ public class NotificationService {
     private final UserRepository users;
     private final PostMediaRepository media;
     private final UserViews userViews;
-    private final SupabaseStorageService storage;
+    private final StorageService storage;
     private final RealtimePublisher realtime;
 
     public NotificationService(NotificationRepository notifications, BlockRepository blocks,
                                FollowRepository follows, UserRepository users,
                                PostMediaRepository media, UserViews userViews,
-                               SupabaseStorageService storage, RealtimePublisher realtime) {
+                               StorageService storage, RealtimePublisher realtime) {
         this.notifications = notifications;
         this.blocks = blocks;
         this.follows = follows;

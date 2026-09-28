@@ -12,7 +12,7 @@ import com.emanstagram.post.PostService;
 import com.emanstagram.post.dto.PostDtos.MosaicTile;
 import com.emanstagram.post.dto.PostDtos.PostResponse;
 import com.emanstagram.social.AccessPolicy;
-import com.emanstagram.storage.SupabaseStorageService;
+import com.emanstagram.storage.StorageService;
 import com.emanstagram.user.User;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -31,10 +31,10 @@ public class FeedService {
     private final PostMediaRepository media;
     private final PostAssembler assembler;
     private final AccessPolicy access;
-    private final SupabaseStorageService storage;
+    private final StorageService storage;
 
     public FeedService(PostRepository posts, PostMediaRepository media, PostAssembler assembler,
-                       AccessPolicy access, SupabaseStorageService storage) {
+                       AccessPolicy access, StorageService storage) {
         this.posts = posts;
         this.media = media;
         this.assembler = assembler;

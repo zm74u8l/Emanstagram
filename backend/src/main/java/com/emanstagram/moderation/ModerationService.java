@@ -12,7 +12,7 @@ import com.emanstagram.post.PostMediaRepository;
 import com.emanstagram.post.PostRepository;
 import com.emanstagram.post.PostService;
 import com.emanstagram.post.PostVisibility;
-import com.emanstagram.storage.SupabaseStorageService;
+import com.emanstagram.storage.StorageService;
 import com.emanstagram.user.User;
 import com.emanstagram.user.UserViews;
 import com.emanstagram.user.dto.UserDtos.UserSummary;
@@ -88,12 +88,12 @@ public class ModerationService {
     private final PostService postService;
     private final CommentService commentService;
     private final UserViews userViews;
-    private final SupabaseStorageService storage;
+    private final StorageService storage;
 
     public ModerationService(ReportRepository reports, PostRepository posts, PostMediaRepository media,
                              CommentRepository comments, PostService postService,
                              CommentService commentService, UserViews userViews,
-                             SupabaseStorageService storage) {
+                             StorageService storage) {
         this.reports = reports;
         this.posts = posts;
         this.media = media;

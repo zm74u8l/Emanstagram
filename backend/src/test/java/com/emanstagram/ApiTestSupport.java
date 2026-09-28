@@ -1,6 +1,6 @@
 package com.emanstagram;
 
-import com.emanstagram.storage.SupabaseStorageService;
+import com.emanstagram.storage.StorageService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,7 +48,7 @@ public abstract class ApiTestSupport {
     protected ObjectMapper json;
 
     @MockitoBean
-    protected SupabaseStorageService storage;
+    protected StorageService storage;
 
     @Autowired
     private PlatformTransactionManager txManager;

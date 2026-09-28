@@ -8,7 +8,7 @@ import com.emanstagram.social.BlockRepository;
 import com.emanstagram.social.FollowRepository;
 import com.emanstagram.social.SocialService;
 import com.emanstagram.storage.MediaValidationService;
-import com.emanstagram.storage.SupabaseStorageService;
+import com.emanstagram.storage.StorageService;
 import com.emanstagram.story.StoryRepository;
 import com.emanstagram.user.dto.UserDtos.*;
 import org.springframework.stereotype.Service;
@@ -31,11 +31,11 @@ public class ProfileService {
     private final FollowRepository follows;
     private final BlockRepository blocks;
     private final StoryRepository stories;
-    private final SupabaseStorageService storage;
+    private final StorageService storage;
     private final MediaValidationService validation;
 
     public ProfileService(UserRepository users, FollowRepository follows, BlockRepository blocks,
-                          StoryRepository stories, SupabaseStorageService storage,
+                          StoryRepository stories, StorageService storage,
                           MediaValidationService validation) {
         this.users = users;
         this.follows = follows;
@@ -161,7 +161,7 @@ public class ProfileService {
         User user = users.findById(me.getId()).orElseThrow(SocialService::userNotFound);
         String key;
         try {
-            key = storage.upload(SupabaseStorageService.AVATARS, user.getId(), file.getBytes(),
+            key = storage.upload(StorageService.AVATARS, user.getId(), file.getBytes(),
                     file.getContentType(), validation.extensionFor(file.getContentType()));
         } catch (IOException ex) {
             throw ApiException.badRequest("UPLOAD_UNREADABLE", "That file could not be read. Please try again.");

@@ -22,7 +22,20 @@
     <jjwt.version>0.12.6</jjwt.version>
     <!-- Not managed by the Spring Boot BOM, so it must be pinned explicitly. -->
     <bouncycastle.version>1.80</bouncycastle.version>
+    <awssdk.version>2.55.7</awssdk.version>
   </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>software.amazon.awssdk</groupId>
+        <artifactId>bom</artifactId>
+        <version>${awssdk.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
 
   <dependencies>
     <!-- Web / API -->
@@ -110,6 +123,31 @@
       <groupId>org.bouncycastle</groupId>
       <artifactId>bcprov-jdk18on</artifactId>
       <version>${bouncycastle.version}</version>
+    </dependency>
+
+    <!--
+      S3-compatible object storage (Cloudflare R2, MinIO, Backblaze B2, AWS).
+      The default Netty and Apache HTTP clients are excluded in favour of
+      the JDK-based one: uploads are synchronous, and it avoids pulling two
+      extra networking stacks into the jar.
+    -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>s3</artifactId>
+      <exclusions>
+        <exclusion>
+          <groupId>software.amazon.awssdk</groupId>
+          <artifactId>netty-nio-client</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>software.amazon.awssdk</groupId>
+          <artifactId>apache-client</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>url-connection-client</artifactId>
     </dependency>
 
     <!-- Test -->
