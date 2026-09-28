@@ -30,7 +30,7 @@ This version fixes the architecture rather than the styling:
 JPA · Flyway · PostgreSQL 16 · WebSocket (STOMP)
 
 **Frontend** — React 19 · TypeScript · Vite 6 · Tailwind CSS v4 · TanStack
-Query · Zustand · lucide-react
+Query · Zustand · STOMP.js · lucide-react · Geist + Instrument Serif (self-hosted)
 
 **Media** — Supabase Storage (public CDN buckets + signed URLs for DMs)
 
@@ -43,22 +43,32 @@ emanstagram/
 │   └── src/main/
 │       ├── java/com/emanstagram/
 │       │   ├── auth/             JWT issue/verify, register/login/refresh
-│       │   ├── common/           error shape, CurrentUser
+│       │   ├── chat/             DMs, groups, messages, read state
+│       │   ├── comment/          threaded comments + likes
+│       │   ├── common/           error shape, CurrentUser, cursors
 │       │   ├── config/           security, CORS, WebSocket, properties
+│       │   ├── feed/             home, explore, hashtags, login mosaic
+│       │   ├── moderation/       reports + moderator queue
+│       │   ├── notification/     activity feed
+│       │   ├── post/             posts, media, likes, saves
+│       │   ├── realtime/         STOMP auth, presence, event publisher
+│       │   ├── search/           people + hashtag search
+│       │   ├── social/           follows, blocks, AccessPolicy
 │       │   ├── storage/          Supabase uploads + media validation
-│       │   └── user/             User, RefreshToken, repositories
+│       │   ├── story/            24h stories + cleanup job
+│       │   └── user/             User, profiles, profile editing
 │       └── resources/
 │           ├── application.yml
 │           ├── application-local.yml
-│           └── db/migration/V1__init.sql
+│           └── db/migration/     V1 schema, V2 enums -> varchar
 └── frontend/
     └── src/
-        ├── components/           Button, Input, Avatar, AuthShell
-        ├── hooks/                useTheme
+        ├── components/           ui/ primitives, post/, chat/, stories/, auth/
+        ├── hooks/                theme, realtime bridge, debounce
         ├── layouts/              AppLayout (rail + mobile tab bar)
-        ├── lib/                  api client, types, utils
-        ├── pages/                Login, Register, Feed, CreatePost, ...
-        └── stores/               auth
+        ├── lib/                  api, realtime (STOMP), media, cache, types
+        ├── pages/                one file per route
+        └── stores/               auth, chat (typing/presence), toasts
 ```
 
 ## Running it
@@ -76,8 +86,8 @@ cd backend
 ```
 
 The `local` profile disables Flyway and lets Hibernate build the schema,
-because `V1__init.sql` uses Postgres-specific syntax (`citext`, `pgcrypto`,
-native `ENUM`s, partial indexes) that H2 rejects. **The Postgres schema is
+because the migrations use Postgres-specific syntax (`pgcrypto`, partial
+indexes, `ALTER ... USING`) that H2 rejects. **The Postgres schema is
 only exercised against a real Postgres instance.**
 
 Against Supabase:
@@ -153,6 +163,7 @@ Vite proxies `/api` and `/ws` to `:8080`, so there is no CORS setup in dev.
 cd backend && ../tools/apache-maven-3.9.16/bin/mvn test
 cd frontend && npx tsc -b      # typecheck
 cd frontend && npm run build
+```
 
 ## Media limits
 
@@ -166,12 +177,16 @@ cd frontend && npm run build
 
 A 50 MB video is ~3.5 minutes of 1080p. Capping at 15 MB is ~60 seconds,
 which matches how long people actually watch, and triples capacity on the
-free tier. Videos are transcoded **in the browser** before upload, so a 2 GB
-4K source becomes a ~12 MB clip without ever touching the server at full size.
+free tier.
+
+**Images are resized in the browser** before upload (longest edge 2048px,
+re-encoded as WebP with a blurhash placeholder), so a 4 MB phone photo
+typically uploads as ~200 KB. Videos are not transcoded: anything over the
+cap is rejected with a clear message.
 
 Limits are enforced in three places:
 
-1. **Client** - validates against `/api/config/public` and transcodes
+1. **Client** - validates against `/api/config/public` and resizes images
 2. **Server** - `MediaValidationService` returns a specific 4xx with a message
 3. **Container** - Spring's `max-file-size` catches anything that slips past
 
@@ -216,24 +231,30 @@ Expected cost: **$0-5/month**.
 
 ## Status
 
-Done:
-- [x] Project scaffolding, build, toolchain
-- [x] Full Postgres schema (users, posts, media, follows, likes, threaded
-      comments, stories, chat, notifications, blocks, reports)
-- [x] Auth: register, login, refresh with rotation and reuse detection
-- [x] Supabase Storage service + three-gate media validation
-- [x] Error handling with a single consistent JSON shape
-- [x] Frontend design system, light/dark/system themes, accent colours
-- [x] Responsive layout (desktop rail + mobile tab bar)
-- [x] Session bootstrap with automatic token refresh
-- [x] SPA deep-link forwarding
+Feature-complete for the agreed scope; not yet deployed. See
+[STATUS.md](STATUS.md) for what was verified and how, what is
+deliberately out of scope, and what remains.
 
-Not built yet (schema is ready, endpoints are not):
-- [ ] Posts / media upload / likes / comments endpoints
-- [ ] Follows, feed, profile endpoints
-- [ ] Chat over WebSocket
-- [ ] Stories, notifications, search, moderation
-- [ ] Browser-side video transcode (`ffmpeg.wasm`)
+## Realtime
+
+The browser opens one STOMP connection to `/ws` and authenticates in the
+CONNECT frame with its access token (browsers can't set headers on a
+WebSocket handshake). Writes go over REST, so validation errors are
+ordinary HTTP errors. Every change is then pushed to the people concerned
+on `/user/queue/events` as `{ type, data }`: `message`, `typing`, `read`,
+`presence`, `notification` and a few more. The frontend's
+`useRealtimeBridge` turns those events into React Query cache updates, so
+pages don't talk to the socket themselves.
+
+## Moderation
+
+Any user can report an account, post or comment. Moderators and admins
+review reports at `/admin`, where they can dismiss a report or remove the
+content. Roles are granted in SQL:
+
+```sql
+UPDATE users SET role = 'MODERATOR' WHERE username = 'someone';
+```
 
 ## Notes
 
@@ -243,5 +264,3 @@ Not built yet (schema is ready, endpoints are not):
   only checks that the entities agree with it.
 - Supabase's service role key is server-side only. It must never be prefixed
   `VITE_`, or Vite will inline it into the JS bundle.
-
-```
