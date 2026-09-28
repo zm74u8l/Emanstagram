@@ -1,5 +1,13 @@
 import type { ApiErrorBody, MediaLimits, TokenResponse } from './types'
 
+/**
+ * Where the backend lives. Empty in development, where Vite proxies /api
+ * and /ws to localhost:8080. In production the frontend (Vercel) and the
+ * backend (Railway etc.) are on different hosts, so this is set at build
+ * time, e.g. VITE_API_URL=https://emanstagram-api.up.railway.app
+ */
+export const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '')
+
 const ACCESS_KEY = 'emanstagram.accessToken'
 const REFRESH_KEY = 'emanstagram.refreshToken'
 
@@ -90,7 +98,7 @@ export async function refreshAccessToken(): Promise<string | null> {
 
   refreshInFlight = (async () => {
     try {
-      const res = await fetch('/api/auth/refresh', {
+      const res = await fetch(`${API_BASE}/api/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken }),
@@ -173,7 +181,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
 
   let response: Response
   try {
-    response = await fetch(path, { ...rest, headers: finalHeaders, body: payload })
+    response = await fetch(API_BASE + path, { ...rest, headers: finalHeaders, body: payload })
   } catch {
     throw new ApiError(0, { code: 'NETWORK', message: "You're offline, or the server can't be reached." })
   }
@@ -220,7 +228,7 @@ export function upload<T>(
   const { method = 'POST', onProgress, signal } = options
   return new Promise<T>((resolve, reject) => {
     const xhr = new XMLHttpRequest()
-    xhr.open(method, path)
+    xhr.open(method, API_BASE + path)
     const token = tokenStore.access
     if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
 

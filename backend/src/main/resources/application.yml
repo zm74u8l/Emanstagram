@@ -1,5 +1,6 @@
 server:
-  port: ${SERVER_PORT:8080}
+  # Hosts such as Railway, Render and Fly assign the port through $PORT.
+  port: ${PORT:${SERVER_PORT:8080}}
   shutdown: graceful
   error:
     include-message: always

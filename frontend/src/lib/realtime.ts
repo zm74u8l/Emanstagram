@@ -1,6 +1,6 @@
 import { Client } from '@stomp/stompjs'
 import { create } from 'zustand'
-import { freshAccessToken } from './api'
+import { API_BASE, freshAccessToken } from './api'
 
 /**
  * One STOMP connection per tab, shared by the whole app.
@@ -31,6 +31,8 @@ const listeners = new Set<Listener>()
 let client: Client | null = null
 
 function socketUrl(): string {
+  // A separately hosted backend: https://api.example.com -> wss://api.example.com/ws
+  if (API_BASE) return `${API_BASE.replace(/^http/, 'ws')}/ws`
   const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws'
   return `${scheme}://${window.location.host}/ws`
 }
