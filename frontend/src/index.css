@@ -1,94 +1,127 @@
 @import 'tailwindcss';
 
 /* =====================================================================
-   DESIGN TOKENS
-   Everything visual is driven by CSS custom properties, so light/dark
-   and per-user accent colours work at runtime without a rebuild.
+   DESIGN TOKENS: quiet monochrome
+   Ink on paper. Photos carry the colour, so the chrome stays neutral.
+   The user's accent colour is reserved for signals: links, the active
+   nav item, unread markers, focus rings and unseen-story rings. Primary
+   buttons are solid ink, never accent.
+   Everything is a CSS variable so theme and accent switch at runtime.
    ===================================================================== */
 @theme {
-  --color-brand-50: oklch(0.97 0.014 254);
-  --color-brand-100: oklch(0.93 0.032 254);
-  --color-brand-200: oklch(0.88 0.06 254);
-  --color-brand-300: oklch(0.8 0.1 254);
-  --color-brand-400: oklch(0.7 0.16 254);
-  --color-brand-500: oklch(0.62 0.21 254);
-  --color-brand-600: oklch(0.55 0.23 254);
-  --color-brand-700: oklch(0.48 0.2 254);
-  --color-brand-800: oklch(0.42 0.16 254);
-  --color-brand-900: oklch(0.37 0.12 254);
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-serif: 'Instrument Serif', ui-serif, Georgia, 'Times New Roman', serif;
 
-  --font-sans: 'Inter var', ui-sans-serif, system-ui, -apple-system,
-    'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --radius-control: 10px;
+  --radius-card: 12px;
+  --radius-sheet: 18px;
 
-  --radius-card: 1rem;
-
-  --animate-shimmer: shimmer 1.8s ease-in-out infinite;
-  --animate-fade-in: fade-in 0.25s ease-out;
-  --animate-scale-in: scale-in 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+  --animate-fade-in: fade-in 0.2s ease-out;
+  --animate-rise: rise 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-pop: pop 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  --animate-drift-up: drift-up 90s linear infinite;
+  --animate-drift-down: drift-down 110s linear infinite;
+  --animate-typing: typing 1.2s ease-in-out infinite;
 }
 
 @keyframes shimmer {
-  0%, 100% { opacity: 0.5; }
+  0%, 100% { opacity: 0.55; }
   50% { opacity: 1; }
 }
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
 }
-@keyframes scale-in {
-  from { opacity: 0; transform: scale(0.96); }
-  to { opacity: 1; transform: scale(1); }
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+/* The double-tap heart: swells, settles, then fades. */
+@keyframes pop {
+  0% { opacity: 0; transform: scale(0.4); }
+  15% { opacity: 0.95; transform: scale(1.15); }
+  30% { transform: scale(0.95); }
+  45%, 80% { opacity: 0.95; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.05) translateY(-12px); }
+}
+/* Login mosaic columns: the track holds two copies, so -50% loops seamlessly. */
+@keyframes drift-up {
+  from { transform: translateY(0); }
+  to { transform: translateY(-50%); }
+}
+@keyframes drift-down {
+  from { transform: translateY(-50%); }
+  to { transform: translateY(0); }
+}
+@keyframes typing {
+  0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-2px); }
 }
 
-/* --- semantic surface variables (light = default) --- */
+/* --- light (default) --- */
 :root {
-  --bg: oklch(1 0 0);
-  --bg-elevated: oklch(0.985 0.002 254);
-  --bg-muted: oklch(0.96 0.004 254);
-  --border: oklch(0.91 0.005 254);
-  --fg: oklch(0.18 0.01 254);
-  --fg-muted: oklch(0.52 0.012 254);
-  --fg-subtle: oklch(0.68 0.01 254);
-  --ring: oklch(0.62 0.21 254);
+  --bg: #fafafa;
+  --bg-elevated: #ffffff;
+  --bg-muted: #f0f0f0;
+  --bg-inverse: #0a0a0a;
+  --border: #e5e5e5;
+  --border-strong: #d4d4d4;
+  --fg: #0a0a0a;
+  --fg-muted: #636363;
+  --fg-subtle: #9a9a9a;
+  --fg-inverse: #fafafa;
 
-  /* Overridden per-user from the users.accent_color column. */
-  --accent: oklch(0.62 0.21 254);
-  --accent-fg: oklch(1 0 0);
+  /* Overridden per user from users.accent_color. */
+  --accent: #6366f1;
+  --accent-fg: #ffffff;
+  --ring: var(--accent);
 
-  --overlay: oklch(0 0 0 / 0.55);
-  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.04), 0 4px 12px oklch(0 0 0 / 0.06);
-  --shadow-pop: 0 8px 30px oklch(0 0 0 / 0.12);
+  --danger: #dc2626;
+  --like: #ed4956;
+
+  --overlay: rgb(0 0 0 / 0.6);
+  --shadow-pop: 0 12px 40px rgb(0 0 0 / 0.12), 0 2px 6px rgb(0 0 0 / 0.06);
 
   color-scheme: light;
 }
 
 .dark {
-  --bg: oklch(0.16 0.008 254);
-  --bg-elevated: oklch(0.2 0.01 254);
-  --bg-muted: oklch(0.25 0.012 254);
-  --border: oklch(0.3 0.012 254);
-  --fg: oklch(0.97 0.004 254);
-  --fg-muted: oklch(0.7 0.012 254);
-  --fg-subtle: oklch(0.55 0.012 254);
+  --bg: #0a0a0a;
+  --bg-elevated: #141414;
+  --bg-muted: #1f1f1f;
+  --bg-inverse: #fafafa;
+  --border: #262626;
+  --border-strong: #363636;
+  --fg: #f5f5f5;
+  --fg-muted: #a3a3a3;
+  --fg-subtle: #6b6b6b;
+  --fg-inverse: #0a0a0a;
 
-  --overlay: oklch(0 0 0 / 0.7);
-  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.3), 0 4px 12px oklch(0 0 0 / 0.35);
-  --shadow-pop: 0 8px 30px oklch(0 0 0 / 0.5);
+  --danger: #f87171;
+  --overlay: rgb(0 0 0 / 0.75);
+  --shadow-pop: 0 12px 40px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.04);
 
   color-scheme: dark;
 }
 
-/* Expose the tokens to Tailwind utilities, e.g. bg-surface, text-muted. */
+/* Tokens as Tailwind utilities: bg-surface, text-fg-muted, border-line, ... */
 @theme inline {
   --color-surface: var(--bg);
   --color-surface-elevated: var(--bg-elevated);
   --color-surface-muted: var(--bg-muted);
+  --color-surface-inverse: var(--bg-inverse);
   --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);
   --color-fg-subtle: var(--fg-subtle);
+  --color-fg-inverse: var(--fg-inverse);
   --color-accent: var(--accent);
   --color-accent-fg: var(--accent-fg);
+  --color-danger: var(--danger);
+  --color-like: var(--like);
 }
 
 @layer base {
@@ -98,6 +131,7 @@
 
   html {
     -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
   }
 
   body {
@@ -105,20 +139,35 @@
     background-color: var(--bg);
     color: var(--fg);
     font-family: var(--font-sans);
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    font-size: 14px;
+    line-height: 1.45;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
-  /* A visible focus ring is essential for keyboard accessibility;
-     never remove it without a replacement. */
+  ::selection {
+    background: color-mix(in srgb, var(--accent) 28%, transparent);
+  }
+
+  /* A visible focus ring is essential for keyboard users. */
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
-    border-radius: 4px;
+    border-radius: 6px;
   }
 
-  /* Respect the OS setting instead of animating regardless. */
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: default;
+  }
+
+  dialog::backdrop {
+    background: var(--overlay);
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -137,5 +186,19 @@
   }
   .scrollbar-none::-webkit-scrollbar {
     display: none;
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+  /* Serif display type is only for the wordmark and a few large headings. */
+  .font-display {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+  /* Adds the home-indicator inset on top of whatever padding is already there. */
+  .pb-safe {
+    padding-bottom: calc(var(--pb-base, 0px) + env(safe-area-inset-bottom));
   }
 }

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -6,18 +6,28 @@ import AppLayout from '@/layouts/AppLayout'
 import Login from '@/pages/Login'
 import Register from '@/pages/Register'
 import Feed from '@/pages/Feed'
-import Explore from '@/pages/Explore'
-import Messages from '@/pages/Messages'
-import Notifications from '@/pages/Notifications'
-import CreatePost from '@/pages/CreatePost'
-import Settings from '@/pages/Settings'
-import Profile from '@/pages/Profile'
 import NotFound from '@/pages/NotFound'
+import { Toaster } from '@/components/ui/bits'
+import { PageSpinner } from '@/components/ui/Spinner'
 
 import { get, tokenStore } from '@/lib/api'
 import { useAuth } from '@/stores/auth'
 import { applyAccent, applyTheme, useHydratePreferences } from '@/hooks/useTheme'
 import type { User } from '@/lib/types'
+
+// Everything past the first screen is split out, so signing in doesn't
+// download the chat client or the story player.
+const PostDetail = lazy(() => import('@/pages/PostDetail'))
+const Explore = lazy(() => import('@/pages/Explore'))
+const Tag = lazy(() => import('@/pages/Tag'))
+const Profile = lazy(() => import('@/pages/Profile'))
+const Saved = lazy(() => import('@/pages/Saved'))
+const CreatePost = lazy(() => import('@/pages/CreatePost'))
+const Notifications = lazy(() => import('@/pages/Notifications'))
+const Messages = lazy(() => import('@/pages/Messages'))
+const Settings = lazy(() => import('@/pages/Settings'))
+const Admin = lazy(() => import('@/pages/Admin'))
+const StoryViewer = lazy(() => import('@/pages/StoryViewer'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,9 +35,9 @@ const queryClient = new QueryClient({
       staleTime: 30_000,
       refetchOnWindowFocus: false,
       retry: (failureCount, error) => {
-        // Never retry an auth or validation failure; it will never succeed.
+        // Never retry an auth, permission or not-found failure; it will never succeed.
         const status = (error as { status?: number })?.status
-        if (status === 401 || status === 403 || status === 404) return false
+        if (status && status >= 400 && status < 500) return false
         return failureCount < 2
       },
     },
@@ -41,21 +51,15 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
   if (initialising) {
     return (
-      <div className="min-h-dvh grid place-items-center bg-surface">
-        <span
-          className="size-8 animate-spin rounded-full border-2 border-accent border-r-transparent"
-          role="status"
-          aria-label="Loading"
-        />
+      <div className="grid min-h-dvh place-items-center bg-surface">
+        <span className="font-display text-[40px] animate-shimmer">Emanstagram</span>
       </div>
     )
   }
-
   if (!user) {
     // Remember where they were headed so login can return them there.
     return <Navigate to="/login" state={{ from: location }} replace />
   }
-
   return <>{children}</>
 }
 
@@ -65,47 +69,22 @@ function RedirectIfAuthed({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-function Placeholder({ title }: { title: string }) {
-  return (
-    <div className="grid min-h-[60dvh] place-items-center px-4">
-      <div className="text-center">
-        <h1 className="text-lg font-semibold">{title}</h1>
-        <p className="mt-1 text-sm text-fg-muted">
-          Coming in the next build.
-        </p>
-      </div>
-    </div>
-  )
-}
-
 /** Validates the stored token once, on boot. */
 function useSessionBootstrap() {
-  const setUser = useAuth((s) => s.setUser)
-  const user = useAuth((s) => s.user)
-  const initialising = useAuth((s) => s.initialising)
-
   useEffect(() => {
     let cancelled = false
-
-    async function bootstrap() {
-      if (!tokenStore.refresh && !tokenStore.access) {
-        useAuth.setState({ initialising: false })
-        return
-      }
-      try {
-        // The api() layer transparently refreshes an expired access token.
-        const me = await get<User>('/api/auth/me')
-        if (!cancelled) setUser(me)
-      } catch {
-        if (!cancelled) useAuth.setState({ user: null, initialising: false })
-      }
+    if (!tokenStore.refresh && !tokenStore.access) {
+      useAuth.setState({ initialising: false })
+      return
     }
-
-    if (!user && initialising) void bootstrap()
+    // The api() layer transparently refreshes an expired access token.
+    get<User>('/api/auth/me')
+      .then((me) => !cancelled && useAuth.getState().setUser(me))
+      .catch(() => !cancelled && useAuth.setState({ user: null, initialising: false }))
     return () => {
       cancelled = true
     }
-  }, [user, initialising, setUser])
+  }, [])
 }
 
 export default function App() {
@@ -113,57 +92,44 @@ export default function App() {
   useSessionBootstrap()
 
   // Reflect the signed-in user's saved theme and accent colour.
-  const user = useAuth((s) => s.user)
+  const theme = useAuth((s) => s.user?.theme)
+  const accent = useAuth((s) => s.user?.accentColor)
   useEffect(() => {
-    if (!user) return
-    const theme = user.theme.toLowerCase()
-    if (theme === 'light' || theme === 'dark' || theme === 'system') {
-      applyTheme(theme)
-    }
-    applyAccent(user.accentColor)
-  }, [user])
+    if (theme) applyTheme(theme.toLowerCase() as 'light' | 'dark' | 'system')
+  }, [theme])
+  useEffect(() => {
+    applyAccent(accent)
+  }, [accent])
 
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <Routes>
-          <Route
-            path="/login"
-            element={
-              <RedirectIfAuthed>
-                <Login />
-              </RedirectIfAuthed>
-            }
-          />
-          <Route
-            path="/register"
-            element={
-              <RedirectIfAuthed>
-                <Register />
-              </RedirectIfAuthed>
-            }
-          />
+        <Suspense fallback={<PageSpinner />}>
+          <Routes>
+            <Route path="/login" element={<RedirectIfAuthed><Login /></RedirectIfAuthed>} />
+            <Route path="/register" element={<RedirectIfAuthed><Register /></RedirectIfAuthed>} />
 
-          <Route
-            element={
-              <RequireAuth>
-                <AppLayout />
-              </RequireAuth>
-            }
-          >
-            <Route index element={<Feed />} />
-            <Route path="explore" element={<Explore />} />
-            <Route path="messages" element={<Messages />} />
-            <Route path="messages/:conversationId" element={<Messages />} />
-            <Route path="notifications" element={<Notifications />} />
-            <Route path="create" element={<CreatePost />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="u/:username" element={<Profile />} />
-            <Route path="p/:postId" element={<Placeholder title="Post" />} />
-          </Route>
+            <Route path="/stories/:username" element={<RequireAuth><StoryViewer /></RequireAuth>} />
 
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+            <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
+              <Route index element={<Feed />} />
+              <Route path="explore" element={<Explore />} />
+              <Route path="t/:tag" element={<Tag />} />
+              <Route path="p/:postId" element={<PostDetail />} />
+              <Route path="u/:username" element={<Profile />} />
+              <Route path="saved" element={<Saved />} />
+              <Route path="create" element={<CreatePost />} />
+              <Route path="notifications" element={<Notifications />} />
+              <Route path="messages" element={<Messages />} />
+              <Route path="messages/:conversationId" element={<Messages />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="admin" element={<Admin />} />
+            </Route>
+
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
+        <Toaster />
       </BrowserRouter>
     </QueryClientProvider>
   )

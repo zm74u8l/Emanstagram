@@ -1,20 +1,21 @@
 import { cn } from '@/lib/utils'
-import { useAuth } from '@/stores/auth'
-import type { User } from '@/lib/types'
+import type { UserSummary } from '@/lib/types'
 
 /**
- * Deterministic identicon for users without an avatar.
+ * A profile picture, with a deterministic monogram when there isn't one.
  *
- * <p>Derived from the user id so the same person always gets the same
- * colours, and it renders instantly with no network request.
+ * The fallback is derived from the user id, so the same person always gets
+ * the same tone, and it renders instantly with no network request. The tones
+ * are muted greys and earths so fallback avatars sit quietly in the
+ * monochrome UI rather than looking like placeholder confetti.
  */
-const PALETTE = [
-  ['#6366f1', '#a855f7'],
-  ['#ec4899', '#f97316'],
-  ['#14b8a6', '#22c55e'],
-  ['#f59e0b', '#ef4444'],
-  ['#0ea5e9', '#8b5cf6'],
-  ['#10b981', '#84cc16'],
+const TONES = [
+  ['#e7e5e4', '#44403c'],
+  ['#e5e7eb', '#374151'],
+  ['#dbe4dd', '#2f4a3a'],
+  ['#e8dfd6', '#5b4636'],
+  ['#dfe3ea', '#34405a'],
+  ['#ebe3e3', '#5a3a3a'],
 ]
 
 function hash(input: string): number {
@@ -28,86 +29,71 @@ function hash(input: string): number {
 
 const SIZES = {
   xs: 'size-6 text-[10px]',
-  sm: 'size-8 text-xs',
+  sm: 'size-8 text-[12px]',
   md: 'size-10 text-sm',
   lg: 'size-14 text-lg',
-  xl: 'size-24 text-2xl',
-  full: 'size-full text-xl',
+  xl: 'size-20 text-2xl',
+  '2xl': 'size-[88px] md:size-[150px] text-3xl md:text-5xl',
 } as const
 
 interface AvatarProps {
-  user: Pick<User, 'id' | 'username' | 'avatarUrl'> | null
+  user: Pick<UserSummary, 'id' | 'username' | 'avatarUrl'> | null | undefined
   size?: keyof typeof SIZES
   className?: string
-  /** Adds the gradient story ring. */
-  ring?: boolean
+  /**
+   * Story ring: 'unseen' draws it in the accent colour, 'seen' in a
+   * neutral hairline.
+   */
+  ring?: 'unseen' | 'seen'
   online?: boolean
 }
 
 export function Avatar({ user, size = 'md', className, ring, online }: AvatarProps) {
-  const current = useAuth((s) => s.user)
-
   if (!user) {
-    return (
-      <div
-        aria-hidden
-        className={cn(
-          'shrink-0 rounded-full bg-surface-muted border border-line',
-          SIZES[size],
-          className,
-        )}
-      />
-    )
+    return <div aria-hidden className={cn('shrink-0 rounded-full bg-surface-muted', SIZES[size], className)} />
   }
 
-  const [from, to] = PALETTE[hash(user.id) % PALETTE.length]
+  const [bg, fg] = TONES[hash(user.id) % TONES.length]
   const initial = user.username.charAt(0).toUpperCase()
+
+  const face = user.avatarUrl ? (
+    <img
+      src={user.avatarUrl}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      className="size-full rounded-full bg-surface-muted object-cover"
+    />
+  ) : (
+    <div
+      className="grid size-full place-items-center rounded-full font-display leading-none"
+      style={{ backgroundColor: bg, color: fg }}
+      aria-hidden
+    >
+      {initial}
+    </div>
+  )
 
   return (
     <div className={cn('relative shrink-0', SIZES[size], className)}>
-      <div
-        className={cn(
-          'size-full overflow-hidden rounded-full bg-surface-muted',
-          ring && 'p-[2px]',
-        )}
-        style={
-          ring
-            ? { background: `linear-gradient(135deg, ${from}, ${to})` }
-            : undefined
-        }
-      >
-        {user.avatarUrl ? (
-          <img
-            src={user.avatarUrl}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className={cn(
-              'size-full object-cover bg-surface-muted',
-              ring && 'ring-2 ring-surface',
-            )}
-          />
-        ) : (
-          <div
-            className="size-full grid place-items-center font-semibold text-white"
-            style={{ background: `linear-gradient(135deg, ${from}, ${to})` }}
-          >
-            {/* aria-hidden: the username is always adjacent in the markup */}
-            <span aria-hidden>{initial}</span>
-            <span className="sr-only">{user.username}</span>
-          </div>
-        )}
-      </div>
+      {ring ? (
+        <div
+          className={cn(
+            'size-full rounded-full p-[2px]',
+            ring === 'unseen' ? 'bg-accent' : 'bg-line-strong',
+          )}
+        >
+          <div className="size-full rounded-full bg-surface p-[2px]">{face}</div>
+        </div>
+      ) : (
+        <div className="size-full rounded-full ring-1 ring-inset ring-black/5 dark:ring-white/5">{face}</div>
+      )}
 
       {online && (
         <span
           aria-label="Online"
-          className="absolute bottom-0 right-0 size-3 rounded-full bg-emerald-500 ring-2 ring-surface"
+          className="absolute bottom-[4%] right-[4%] size-[26%] min-h-2.5 min-w-2.5 rounded-full border-2 border-surface bg-emerald-500"
         />
-      )}
-
-      {current?.id === user.id && (
-        <span className="sr-only">(you)</span>
       )}
     </div>
   )

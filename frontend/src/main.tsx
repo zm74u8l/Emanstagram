@@ -1,5 +1,9 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+// Self-hosted fonts: no third-party request, and no layout shift from a late swap.
+import '@fontsource-variable/geist'
+import '@fontsource/instrument-serif/400.css'
+import '@fontsource/instrument-serif/400-italic.css'
 import App from './App'
 import './index.css'
 

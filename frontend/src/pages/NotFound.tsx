@@ -1,21 +1,19 @@
 import { Link } from 'react-router-dom'
+import { Wordmark } from '@/components/ui/bits'
 
 export default function NotFound() {
   return (
-    <div className="grid min-h-dvh place-items-center bg-surface px-4">
-      <div className="text-center">
-        <p className="text-6xl font-bold bg-gradient-to-r from-brand-400 to-brand-600 bg-clip-text text-transparent">
-          404
-        </p>
-        <h1 className="mt-4 text-lg font-semibold">This page does not exist</h1>
-        <p className="mt-1 text-sm text-fg-muted">
-          The link may be broken, or the post may have been deleted.
-        </p>
+    <div className="flex min-h-dvh flex-col bg-surface px-6 py-8">
+      <Wordmark className="text-[28px]" />
+      <div className="m-auto max-w-md text-center">
+        <p className="font-display text-[120px] leading-none text-fg-subtle">404</p>
+        <h1 className="mt-2 font-display text-[36px] leading-tight">This page isn’t here</h1>
+        <p className="mt-2 text-[14px] text-fg-muted">The link may be broken, or the post may have been deleted.</p>
         <Link
           to="/"
-          className="mt-6 inline-block rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-accent-fg hover:opacity-90 transition-opacity"
+          className="mt-7 inline-flex h-11 items-center rounded-[var(--radius-control)] bg-surface-inverse px-6 text-[15px] font-semibold text-fg-inverse hover:opacity-85"
         >
-          Back to home
+          Back to Emanstagram
         </Link>
       </div>
     </div>

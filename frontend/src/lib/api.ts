@@ -23,28 +23,58 @@ export class ApiError extends Error {
   }
 }
 
+/** A readable message for any thrown value. */
+export function errorMessage(err: unknown, fallback = 'Something went wrong. Please try again.'): string {
+  if (err instanceof ApiError) return err.message
+  if (err instanceof Error && err.message) return err.message
+  return fallback
+}
+
 // ---- token storage -------------------------------------------------
+
+function safeGet(key: string): string | null {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
 
 export const tokenStore = {
   get access(): string | null {
-    return localStorage.getItem(ACCESS_KEY)
+    return safeGet(ACCESS_KEY)
   },
   get refresh(): string | null {
-    return localStorage.getItem(REFRESH_KEY)
+    return safeGet(REFRESH_KEY)
   },
   set(access: string, refresh: string) {
-    localStorage.setItem(ACCESS_KEY, access)
-    localStorage.setItem(REFRESH_KEY, refresh)
+    try {
+      localStorage.setItem(ACCESS_KEY, access)
+      localStorage.setItem(REFRESH_KEY, refresh)
+    } catch {
+      /* private mode: the session lasts for this tab only */
+    }
   },
   clear() {
-    localStorage.removeItem(ACCESS_KEY)
-    localStorage.removeItem(REFRESH_KEY)
+    try {
+      localStorage.removeItem(ACCESS_KEY)
+      localStorage.removeItem(REFRESH_KEY)
+    } catch {
+      /* nothing to clear */
+    }
   },
 }
 
 // ---- refresh coordination -----------------------------------------
 
 let refreshInFlight: Promise<string | null> | null = null
+const refreshListeners = new Set<(token: string | null) => void>()
+
+/** Lets the realtime client reconnect with the new token after a refresh. */
+export function onTokenRefresh(listener: (token: string | null) => void): () => void {
+  refreshListeners.add(listener)
+  return () => refreshListeners.delete(listener)
+}
 
 /**
  * Refreshes the access token, collapsing concurrent 401s into a single
@@ -52,7 +82,7 @@ let refreshInFlight: Promise<string | null> | null = null
  * five refreshes, and rotation would invalidate four of them and log the
  * user out.
  */
-async function refreshAccessToken(): Promise<string | null> {
+export async function refreshAccessToken(): Promise<string | null> {
   if (refreshInFlight) return refreshInFlight
 
   const refreshToken = tokenStore.refresh
@@ -67,10 +97,12 @@ async function refreshAccessToken(): Promise<string | null> {
       })
       if (!res.ok) {
         tokenStore.clear()
+        refreshListeners.forEach((l) => l(null))
         return null
       }
       const data: TokenResponse = await res.json()
       tokenStore.set(data.accessToken, data.refreshToken)
+      refreshListeners.forEach((l) => l(data.accessToken))
       return data.accessToken
     } catch {
       return null
@@ -84,18 +116,47 @@ async function refreshAccessToken(): Promise<string | null> {
   return refreshInFlight
 }
 
+/** Seconds until the stored access token expires (negative once expired). */
+function secondsLeft(token: string): number {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return payload.exp - Date.now() / 1000
+  } catch {
+    return -1
+  }
+}
+
+/**
+ * An access token good for at least another minute, refreshing if needed.
+ * The WebSocket authenticates once at CONNECT, so it must never present a
+ * token that is about to expire.
+ */
+export async function freshAccessToken(): Promise<string | null> {
+  const current = tokenStore.access
+  if (current && secondsLeft(current) > 60) return current
+  return refreshAccessToken()
+}
+
 // ---- request helpers ----------------------------------------------
 
 interface RequestOptions extends Omit<RequestInit, 'body'> {
   body?: unknown
   /** Internal: prevents an infinite refresh loop. */
   _isRetry?: boolean
-  /** Set for form-data uploads; JSON serialisation is skipped. */
-  raw?: boolean
+}
+
+function parseBody(text: string): unknown {
+  if (!text) return null
+  try {
+    return JSON.parse(text)
+  } catch {
+    // A proxy error page, for instance. Treated as a body-less response.
+    return null
+  }
 }
 
 export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { body, raw, _isRetry, headers, ...rest } = options
+  const { body, _isRetry, headers, ...rest } = options
 
   const finalHeaders = new Headers(headers)
   const token = tokenStore.access
@@ -110,11 +171,12 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
     payload = JSON.stringify(body)
   }
 
-  const response = await fetch(path, {
-    ...rest,
-    headers: finalHeaders,
-    body: payload,
-  })
+  let response: Response
+  try {
+    response = await fetch(path, { ...rest, headers: finalHeaders, body: payload })
+  } catch {
+    throw new ApiError(0, { code: 'NETWORK', message: "You're offline, or the server can't be reached." })
+  }
 
   if (response.status === 401 && !_isRetry && tokenStore.refresh) {
     const fresh = await refreshAccessToken()
@@ -125,11 +187,10 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
 
   if (response.status === 204) return undefined as T
 
-  const text = await response.text()
-  const parsed = text ? (JSON.parse(text) as unknown) : null
+  const parsed = parseBody(await response.text())
 
   if (!response.ok) {
-    const errorBody = (parsed as ApiErrorBody)?.error
+    const errorBody = (parsed as ApiErrorBody | null)?.error
     throw new ApiError(
       response.status,
       errorBody ?? { code: 'UNKNOWN', message: response.statusText || 'Request failed' },
@@ -141,8 +202,54 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
 
 export const get = <T>(path: string) => api<T>(path, { method: 'GET' })
 export const post = <T>(path: string, body?: unknown) => api<T>(path, { method: 'POST', body })
+export const put = <T>(path: string, body?: unknown) => api<T>(path, { method: 'PUT', body })
 export const patch = <T>(path: string, body?: unknown) => api<T>(path, { method: 'PATCH', body })
 export const del = <T>(path: string) => api<T>(path, { method: 'DELETE' })
+
+/**
+ * Multipart upload with progress. fetch() cannot report upload progress, so
+ * this uses XMLHttpRequest, with the same 401 -> refresh -> retry behaviour
+ * as {@link api}.
+ */
+export function upload<T>(
+  path: string,
+  form: FormData,
+  options: { method?: 'POST' | 'PUT'; onProgress?: (fraction: number) => void; signal?: AbortSignal } = {},
+  isRetry = false,
+): Promise<T> {
+  const { method = 'POST', onProgress, signal } = options
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open(method, path)
+    const token = tokenStore.access
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress?.(e.loaded / e.total)
+    }
+    xhr.onerror = () =>
+      reject(new ApiError(0, { code: 'NETWORK', message: 'The upload was interrupted. Check your connection.' }))
+    xhr.onabort = () => reject(new ApiError(0, { code: 'ABORTED', message: 'Upload cancelled.' }))
+    xhr.onload = async () => {
+      if (xhr.status === 401 && !isRetry && tokenStore.refresh) {
+        const fresh = await refreshAccessToken()
+        if (fresh) {
+          upload<T>(path, form, options, true).then(resolve, reject)
+          return
+        }
+      }
+      const parsed = parseBody(xhr.responseText)
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(parsed as T)
+      } else {
+        const errorBody = (parsed as ApiErrorBody | null)?.error
+        reject(new ApiError(xhr.status, errorBody ?? { code: 'UNKNOWN', message: 'The upload failed.' }))
+      }
+    }
+    signal?.addEventListener('abort', () => xhr.abort())
+    xhr.send(form)
+  })
+}
 
 /** Media limits, fetched once and cached by TanStack Query. */
 export const fetchMediaLimits = () => get<MediaLimits>('/api/config/public')
