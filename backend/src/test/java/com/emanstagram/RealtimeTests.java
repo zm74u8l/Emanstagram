@@ -42,6 +42,14 @@ class RealtimeTests {
     @MockitoBean
     private StorageService storage;
 
+    @Autowired
+    private com.emanstagram.abuse.RateLimiter rateLimiter;
+
+    @org.junit.jupiter.api.BeforeEach
+    void resetLimits() {
+        rateLimiter.reset();
+    }
+
     private record Account(String id, String token) {
     }
 

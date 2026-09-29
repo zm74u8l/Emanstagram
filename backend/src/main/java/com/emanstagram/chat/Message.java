@@ -42,6 +42,10 @@ public class Message {
     @Column(name = "storage_key", length = 500)
     private String storageKey;
 
+    /** Size of the attachment, counted towards the sender's storage quota. */
+    @Column(name = "attachment_bytes", nullable = false)
+    private long attachmentBytes = 0;
+
     @Column(name = "reply_to_id", updatable = false)
     private UUID replyToId;
 
@@ -123,6 +127,14 @@ public class Message {
 
     public void setStorageKey(String storageKey) {
         this.storageKey = storageKey;
+    }
+
+    public long getAttachmentBytes() {
+        return attachmentBytes;
+    }
+
+    public void setAttachmentBytes(long attachmentBytes) {
+        this.attachmentBytes = attachmentBytes;
     }
 
     public UUID getReplyToId() {

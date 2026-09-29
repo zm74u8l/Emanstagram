@@ -9,6 +9,7 @@ import com.emanstagram.common.Times;
 import com.emanstagram.realtime.PresenceTracker;
 import com.emanstagram.realtime.RealtimePublisher;
 import com.emanstagram.social.AccessPolicy;
+import com.emanstagram.abuse.UploadGuard;
 import com.emanstagram.storage.MediaValidationService;
 import com.emanstagram.storage.StorageService;
 import com.emanstagram.user.User;
@@ -50,6 +51,7 @@ public class ChatService {
     private final AccessPolicy access;
     private final StorageService storage;
     private final MediaValidationService validation;
+    private final UploadGuard uploadGuard;
     private final RealtimePublisher realtime;
     private final PresenceTracker presence;
     private final TransactionTemplate tx;
@@ -57,7 +59,7 @@ public class ChatService {
     public ChatService(ConversationRepository conversations, ConversationMemberRepository members,
                        DirectConversationKeyRepository directKeys, MessageRepository messages,
                        UserRepository users, UserViews userViews, AccessPolicy access,
-                       StorageService storage, MediaValidationService validation,
+                       StorageService storage, MediaValidationService validation, UploadGuard uploadGuard,
                        RealtimePublisher realtime, PresenceTracker presence,
                        PlatformTransactionManager txManager) {
         this.conversations = conversations;
@@ -69,6 +71,7 @@ public class ChatService {
         this.access = access;
         this.storage = storage;
         this.validation = validation;
+        this.uploadGuard = uploadGuard;
         this.realtime = realtime;
         this.presence = presence;
         this.tx = new TransactionTemplate(txManager);
@@ -246,27 +249,30 @@ public class ChatService {
     /** An image or video, optionally with a caption. The file goes to the private bucket. */
     public MessageResponse sendAttachment(UUID conversationId, MultipartFile file, String body,
                                           UUID replyToId, String clientId, User me) {
-        validation.validateChatAttachment(file);
+        String type = validation.validateChatAttachment(file);
         if (body != null && body.length() > 4000) {
             throw ApiException.badRequest("MESSAGE_TOO_LONG", "Messages are limited to 4000 characters.");
         }
         // Membership and blocks are checked before spending time on the upload.
         tx.executeWithoutResult(status -> requireCanSend(conversationId, me));
+        uploadGuard.admit(me, file.getSize(), 1);
 
         String key;
         try {
             key = storage.upload(StorageService.MESSAGES, conversationId, file.getBytes(),
-                    file.getContentType(), validation.extensionFor(file.getContentType()));
+                    type, validation.extensionFor(type));
         } catch (IOException ex) {
             throw ApiException.badRequest("UPLOAD_UNREADABLE", "That file could not be read. Please try again.");
         }
         try {
             return tx.execute(status -> {
                 Conversation c = requireCanSend(conversationId, me);
-                MessageKind kind = validation.isVideo(file.getContentType()) ? MessageKind.VIDEO : MessageKind.IMAGE;
-                Message m = messages.save(new Message(conversationId, me, kind,
+                MessageKind kind = validation.isVideo(type) ? MessageKind.VIDEO : MessageKind.IMAGE;
+                Message draft = new Message(conversationId, me, kind,
                         body == null || body.isBlank() ? null : body.trim(), key,
-                        validReplyTo(replyToId, conversationId)));
+                        validReplyTo(replyToId, conversationId));
+                draft.setAttachmentBytes(file.getSize());
+                Message m = messages.save(draft);
                 return deliver(c, m, me, clientId);
             });
         } catch (RuntimeException ex) {

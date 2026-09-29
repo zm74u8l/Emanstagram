@@ -40,14 +40,18 @@ public class Story {
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
 
+    @Column(name = "size_bytes", nullable = false)
+    private long sizeBytes;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Times.now();
 
     protected Story() {
     }
 
-    public Story(User author, String storageKey, String mimeType, String caption,
+    public Story(User author, String storageKey, String mimeType, long sizeBytes, String caption,
                  String backgroundHex, Instant expiresAt) {
+        this.sizeBytes = sizeBytes;
         this.author = author;
         this.storageKey = storageKey;
         this.mimeType = mimeType;
@@ -104,6 +108,10 @@ public class Story {
 
     public Instant getExpiresAt() {
         return expiresAt;
+    }
+
+    public long getSizeBytes() {
+        return sizeBytes;
     }
 
     public Instant getCreatedAt() {

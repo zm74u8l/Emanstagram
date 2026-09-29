@@ -1,5 +1,7 @@
 package com.emanstagram.auth;
 
+import com.emanstagram.abuse.RateLimiter;
+import com.emanstagram.abuse.TurnstileVerifier;
 import com.emanstagram.auth.dto.AuthDtos.*;
 import com.emanstagram.common.ApiException;
 import com.emanstagram.common.CurrentUser;
@@ -15,6 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Optional;
@@ -31,23 +34,45 @@ public class AuthService {
     private final JwtService jwtService;
     private final StorageService storageService;
     private final CurrentUser currentUser;
+    private final TurnstileVerifier turnstile;
+    private final RateLimiter rateLimiter;
 
     public AuthService(UserRepository userRepository,
                        RefreshTokenRepository refreshTokenRepository,
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService,
                        StorageService storageService,
-                       CurrentUser currentUser) {
+                       CurrentUser currentUser,
+                       TurnstileVerifier turnstile,
+                       RateLimiter rateLimiter) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.storageService = storageService;
         this.currentUser = currentUser;
+        this.turnstile = turnstile;
+        this.rateLimiter = rateLimiter;
+    }
+
+    /**
+     * Per-account guess limit, on top of the per-IP one in RateLimitFilter.
+     * Someone rotating through many IPs still gets only this many tries at
+     * one account's password.
+     */
+    private static final int LOGIN_ATTEMPTS_PER_ACCOUNT = 20;
+    private static final Duration LOGIN_WINDOW = Duration.ofMinutes(15);
+
+    private static ApiException suspended(User user) {
+        String reason = user.getSuspendedReason();
+        return ApiException.forbidden("ACCOUNT_SUSPENDED", "This account has been suspended"
+                + (reason == null || reason.isBlank() ? "." : ": " + reason));
     }
 
     @Transactional
-    public TokenResponse register(RegisterRequest request) {
+    public TokenResponse register(RegisterRequest request, String clientIp) {
+        // The bot check goes first, so a bot can't even probe which usernames exist.
+        turnstile.verify(request.captchaToken(), clientIp);
 
         String username = request.username().trim();
         String email = request.email().trim().toLowerCase(Locale.ROOT);
@@ -73,6 +98,11 @@ public class AuthService {
     @Transactional
     public TokenResponse login(LoginRequest request) {
         String identifier = request.identifier().trim();
+        if (rateLimiter.tryAcquire("login-account|" + identifier.toLowerCase(Locale.ROOT),
+                LOGIN_ATTEMPTS_PER_ACCOUNT, LOGIN_WINDOW) > 0) {
+            throw new ApiException(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS, "RATE_LIMITED",
+                    "Too many sign-in attempts for this account. Please wait a few minutes.");
+        }
 
         User user = identifier.contains("@")
                 ? userRepository.findByEmailIgnoreCase(identifier).orElse(null)
@@ -83,6 +113,11 @@ public class AuthService {
         if (user == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw ApiException.unauthorized("INVALID_CREDENTIALS",
                     "Incorrect username or password.");
+        }
+        // Checked only after the password, so a suspension isn't revealed to
+        // someone who doesn't know it.
+        if (user.isSuspended()) {
+            throw suspended(user);
         }
 
         return issueTokens(user);
@@ -113,6 +148,10 @@ public class AuthService {
         if (!stored.isUsableAt(Instant.now())) {
             throw ApiException.unauthorized("REFRESH_TOKEN_EXPIRED",
                     "Your session has expired. Please sign in again.");
+        }
+
+        if (stored.getUser().isSuspended()) {
+            throw suspended(stored.getUser());
         }
 
         stored.setRevoked(true);

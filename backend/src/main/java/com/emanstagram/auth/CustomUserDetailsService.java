@@ -39,11 +39,12 @@ public class CustomUserDetailsService implements UserDetailsService {
     }
 
     private static UserDetails toUserDetails(User user) {
-        return new org.springframework.security.core.userdetails.User(
-                user.getUsername(),
-                user.getPasswordHash(),
-                List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
-        );
+        return org.springframework.security.core.userdetails.User.withUsername(user.getUsername())
+                .password(user.getPasswordHash())
+                .authorities(List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name())))
+                // A suspended account keeps its data but can't act.
+                .accountLocked(user.isSuspended())
+                .build();
     }
 
     /** Minimum role required to reach admin endpoints. */

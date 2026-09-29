@@ -1,5 +1,8 @@
 package com.emanstagram.config;
 
+import com.emanstagram.abuse.ClientIp;
+import com.emanstagram.abuse.RateLimitFilter;
+import com.emanstagram.abuse.RateLimiter;
 import com.emanstagram.auth.CustomUserDetailsService;
 import com.emanstagram.auth.JwtAuthenticationFilter;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -42,13 +45,19 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final EmanstagramProperties properties;
     private final ObjectMapper objectMapper;
+    private final RateLimiter rateLimiter;
+    private final ClientIp clientIp;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
                           EmanstagramProperties properties,
-                          ObjectMapper objectMapper) {
+                          ObjectMapper objectMapper,
+                          RateLimiter rateLimiter,
+                          ClientIp clientIp) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.properties = properties;
         this.objectMapper = objectMapper;
+        this.rateLimiter = rateLimiter;
+        this.clientIp = clientIp;
     }
 
     @Bean
@@ -96,6 +105,14 @@ public class SecurityConfig {
                                 "You do not have permission to do that."))
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+        // After the JWT filter, so per-account limits know who is calling.
+        boolean rateLimits = properties.security() == null || properties.security().rateLimitsEnabled();
+        if (rateLimits) {
+            http.addFilterAfter(new RateLimitFilter(rateLimiter, clientIp), JwtAuthenticationFilter.class);
+        } else {
+            log.warn("Rate limits are DISABLED (RATE_LIMITS_ENABLED=false). Never run production like this.");
+        }
 
         return http.build();
     }

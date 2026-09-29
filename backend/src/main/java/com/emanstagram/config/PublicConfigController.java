@@ -1,5 +1,6 @@
 package com.emanstagram.config;
 
+import com.emanstagram.abuse.TurnstileVerifier;
 import com.emanstagram.storage.MediaValidationService;
 import com.emanstagram.storage.StorageService;
 import org.springframework.http.ResponseEntity;
@@ -7,6 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -24,18 +26,21 @@ public class PublicConfigController {
 
     private final EmanstagramProperties properties;
     private final StorageService storageService;
+    private final TurnstileVerifier turnstile;
 
     public PublicConfigController(EmanstagramProperties properties,
-                                  StorageService storageService) {
+                                  StorageService storageService,
+                                  TurnstileVerifier turnstile) {
         this.properties = properties;
         this.storageService = storageService;
+        this.turnstile = turnstile;
     }
 
     @GetMapping("/public")
     public ResponseEntity<Map<String, Object>> publicConfig() {
         var media = properties.media();
 
-        return ResponseEntity.ok(Map.of(
+        Map<String, Object> body = new HashMap<>(Map.of(
                 "maxImageBytes", media.maxImageBytes(),
                 "maxVideoBytes", media.maxVideoBytes(),
                 "maxAvatarBytes", media.maxAvatarBytes(),
@@ -48,5 +53,10 @@ public class PublicConfigController {
                 // Lets the UI hide upload controls instead of failing at runtime.
                 "storageEnabled", storageService.isConfigured()
         ));
+        // Public by design: the site key is what the browser widget renders with.
+        if (turnstile.enabled()) {
+            body.put("turnstileSiteKey", turnstile.siteKey());
+        }
+        return ResponseEntity.ok(body);
     }
 }

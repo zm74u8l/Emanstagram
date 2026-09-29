@@ -89,6 +89,10 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
             """)
     List<String> captionsMatching(@Param("pattern") String pattern, Pageable pageable);
 
+    /** Everything an account has posted, for wiping a suspended abuser's content. */
+    @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.author.id = :author")
+    List<Post> findAllByAuthorId(@Param("author") UUID author);
+
     @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.id IN :ids")
     List<Post> findAllWithAuthorByIdIn(@Param("ids") Collection<UUID> ids);
 

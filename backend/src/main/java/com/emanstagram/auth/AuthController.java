@@ -1,7 +1,9 @@
 package com.emanstagram.auth;
 
 import com.emanstagram.auth.dto.AuthDtos.*;
+import com.emanstagram.abuse.ClientIp;
 import com.emanstagram.common.CurrentUser;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,15 +15,18 @@ public class AuthController {
 
     private final AuthService authService;
     private final CurrentUser currentUser;
+    private final ClientIp clientIp;
 
-    public AuthController(AuthService authService, CurrentUser currentUser) {
+    public AuthController(AuthService authService, CurrentUser currentUser, ClientIp clientIp) {
         this.authService = authService;
         this.currentUser = currentUser;
+        this.clientIp = clientIp;
     }
 
     @PostMapping("/register")
-    public ResponseEntity<TokenResponse> register(@Valid @RequestBody RegisterRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
+    public ResponseEntity<TokenResponse> register(@Valid @RequestBody RegisterRequest request,
+                                                  HttpServletRequest http) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request, clientIp.of(http)));
     }
 
     @PostMapping("/login")

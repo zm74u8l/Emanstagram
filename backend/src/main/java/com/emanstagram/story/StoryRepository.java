@@ -23,4 +23,7 @@ public interface StoryRepository extends JpaRepository<Story, UUID> {
     boolean hasActive(@Param("author") UUID author, @Param("now") Instant now);
 
     List<Story> findByExpiresAtBefore(Instant cutoff);
+
+    @Query("SELECT s FROM Story s WHERE s.author.id = :author")
+    List<Story> findAllByAuthorId(@Param("author") UUID author);
 }

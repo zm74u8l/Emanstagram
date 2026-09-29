@@ -67,6 +67,20 @@ public class User {
     @Column(name = "banner_key", length = 500)
     private String bannerKey;
 
+    /** Sizes of the current avatar and banner, counted towards the storage quota. */
+    @Column(name = "avatar_bytes", nullable = false)
+    private long avatarBytes = 0;
+
+    @Column(name = "banner_bytes", nullable = false)
+    private long bannerBytes = 0;
+
+    /** Set while the account is suspended: sign-in, API access and uploads are refused. */
+    @Column(name = "suspended_at")
+    private Instant suspendedAt;
+
+    @Column(name = "suspended_reason", length = 300)
+    private String suspendedReason;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "theme", nullable = false, length = 20)
     private ThemePreference theme = ThemePreference.SYSTEM;
@@ -235,6 +249,44 @@ public class User {
 
     public void setBannerKey(String bannerKey) {
         this.bannerKey = bannerKey;
+    }
+
+    public long getAvatarBytes() {
+        return avatarBytes;
+    }
+
+    public void setAvatarBytes(long avatarBytes) {
+        this.avatarBytes = avatarBytes;
+    }
+
+    public long getBannerBytes() {
+        return bannerBytes;
+    }
+
+    public void setBannerBytes(long bannerBytes) {
+        this.bannerBytes = bannerBytes;
+    }
+
+    public boolean isSuspended() {
+        return suspendedAt != null;
+    }
+
+    public Instant getSuspendedAt() {
+        return suspendedAt;
+    }
+
+    public String getSuspendedReason() {
+        return suspendedReason;
+    }
+
+    public void suspend(Instant at, String reason) {
+        this.suspendedAt = at;
+        this.suspendedReason = reason;
+    }
+
+    public void unsuspend() {
+        this.suspendedAt = null;
+        this.suspendedReason = null;
     }
 
     public ThemePreference getTheme() {

@@ -162,7 +162,7 @@ class ChatStoryModerationApiTests extends ApiTestSupport {
         mvc.perform(as(fan, put("/api/users/" + author.id() + "/follow")));
 
         JsonNode story = read(mvc.perform(as(author, multipart("/api/stories")
-                        .file(new MockMultipartFile("file", "s.webp", "image/webp", new byte[]{1, 2, 3}))
+                        .file(new MockMultipartFile("file", "s.webp", "image/webp", WEBP))
                         .param("caption", "sunrise")))
                 .andExpect(status().isCreated()));
         String storyId = story.path("id").asText();
@@ -189,7 +189,7 @@ class ChatStoryModerationApiTests extends ApiTestSupport {
     void purgeRemovesOnlyExpiredStories() throws Exception {
         Account author = register("pe");
         mvc.perform(as(author, multipart("/api/stories")
-                .file(new MockMultipartFile("file", "s.webp", "image/webp", new byte[]{1}))));
+                .file(new MockMultipartFile("file", "s.webp", "image/webp", WEBP))));
         assertThat(storyService.purgeExpired()).isZero();
         assertThat(read(mvc.perform(as(author, get("/api/stories/feed"))))).hasSize(1);
     }

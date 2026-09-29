@@ -33,7 +33,10 @@ public final class AuthDtos {
 
             @NotBlank(message = "Password is required")
             @Size(min = 8, max = 72, message = "Password must be at least 8 characters")
-            String password
+            String password,
+
+            /** Cloudflare Turnstile token; required only when Turnstile is configured. */
+            String captchaToken
     ) {
     }
 

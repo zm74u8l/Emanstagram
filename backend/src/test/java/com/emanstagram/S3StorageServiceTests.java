@@ -23,7 +23,7 @@ class S3StorageServiceTests {
         var s3 = new Storage.S3("https://account123.r2.cloudflarestorage.com", "auto", "AKIDEXAMPLE",
                 "secret-example", "emanstagram-media", "emanstagram-private", publicBaseUrl, true);
         var storage = new Storage("s3", null, null, null, s3);
-        return new S3StorageService(new EmanstagramProperties(null, null, storage, null));
+        return new S3StorageService(new EmanstagramProperties(null, null, storage, null, null, null));
     }
 
     @Test

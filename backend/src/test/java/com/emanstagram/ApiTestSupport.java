@@ -1,5 +1,7 @@
 package com.emanstagram;
 
+import com.emanstagram.abuse.RateLimiter;
+import com.emanstagram.abuse.UploadGuard;
 import com.emanstagram.storage.StorageService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -62,6 +64,23 @@ public abstract class ApiTestSupport {
     protected record Account(UUID id, String username, String token) {
     }
 
+    @Autowired
+    protected RateLimiter rateLimiter;
+
+    @Autowired
+    protected UploadGuard uploadGuard;
+
+    /**
+     * Rate limits stay ON in tests, so the real filter runs on every request;
+     * counters are cleared between tests because every MockMvc request
+     * comes from the same address.
+     */
+    @BeforeEach
+    void resetLimits() {
+        rateLimiter.reset();
+        uploadGuard.reset();
+    }
+
     @BeforeEach
     void stubStorage() {
         when(storage.isConfigured()).thenReturn(true);
@@ -99,8 +118,14 @@ public abstract class ApiTestSupport {
         return content.isEmpty() ? json.nullNode() : json.readTree(content);
     }
 
+    /**
+     * A 16-byte file carrying a real WebP signature. The server reads file
+     * types from their bytes, so arbitrary bytes would (rightly) be refused.
+     */
+    protected static final byte[] WEBP = {'R', 'I', 'F', 'F', 8, 0, 0, 0, 'W', 'E', 'B', 'P', 'V', 'P', '8', ' '};
+
     protected static MockMultipartFile image(String name) {
-        return new MockMultipartFile("files", name, "image/webp", new byte[]{1, 2, 3, 4});
+        return new MockMultipartFile("files", name, "image/webp", WEBP);
     }
 
     /** Creates a post with {@code count} images and returns its id. */

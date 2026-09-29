@@ -201,6 +201,29 @@ emanstagram:
     allowed-image-types: image/jpeg,image/png,image/webp,image/gif
     allowed-video-types: video/mp4,video/webm,video/quicktime
 
+  # -----------------------------------------------------------------
+  # ABUSE PROTECTION
+  # -----------------------------------------------------------------
+  limits:
+    storage-quota-bytes: ${STORAGE_QUOTA_BYTES:1073741824}          # 1 GB per account
+    daily-upload-bytes: ${DAILY_UPLOAD_BYTES:209715200}             # 200 MB per 24 h
+    daily-upload-count: ${DAILY_UPLOAD_COUNT:50}                    # files per 24 h
+    new-account-daily-upload-bytes: ${NEW_ACCOUNT_DAILY_UPLOAD_BYTES:52428800}  # 50 MB
+    new-account-daily-upload-count: ${NEW_ACCOUNT_DAILY_UPLOAD_COUNT:15}
+    new-account-period: ${NEW_ACCOUNT_PERIOD:PT24H}
+
+  security:
+    rate-limits-enabled: ${RATE_LIMITS_ENABLED:true}
+    # 0 when clients connect directly (local dev). 1 behind one reverse proxy
+    # such as Railway's: the client IP is then the LAST X-Forwarded-For entry,
+    # the one the proxy wrote. Never trust the first entry: clients set it.
+    trusted-proxy-hops: ${TRUSTED_PROXY_HOPS:0}
+    turnstile:
+      # Cloudflare dashboard -> Turnstile -> Add widget. Leave both empty to
+      # skip the bot check (fine locally, not recommended in production).
+      site-key: ${TURNSTILE_SITE_KEY:}
+      secret-key: ${TURNSTILE_SECRET_KEY:}
+
 management:
   endpoints:
     web:

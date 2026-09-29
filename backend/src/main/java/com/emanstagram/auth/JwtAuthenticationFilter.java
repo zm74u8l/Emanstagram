@@ -40,10 +40,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     @NonNull FilterChain filterChain)
             throws ServletException, IOException {
 
-        extractToken(request)
+        Optional<UserDetails> user = extractToken(request)
                 .flatMap(jwtService::parseAccessToken)
-                .flatMap(this::toUserDetails)
-                .ifPresent(user -> authenticate(user, request));
+                .flatMap(this::toUserDetails);
+
+        // An access token outlives a suspension by up to 15 minutes; refuse
+        // it here rather than waiting for it to expire.
+        if (user.isPresent() && !user.get().isAccountNonLocked()) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":{\"code\":\"ACCOUNT_SUSPENDED\","
+                    + "\"message\":\"This account has been suspended.\"}}");
+            return;
+        }
+        user.ifPresent(u -> authenticate(u, request));
 
         filterChain.doFilter(request, response);
     }

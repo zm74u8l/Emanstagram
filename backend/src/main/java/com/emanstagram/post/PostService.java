@@ -13,6 +13,7 @@ import com.emanstagram.notification.NotificationRepository;
 import com.emanstagram.notification.NotificationService;
 import com.emanstagram.post.dto.PostDtos.*;
 import com.emanstagram.social.AccessPolicy;
+import com.emanstagram.abuse.UploadGuard;
 import com.emanstagram.storage.MediaValidationService;
 import com.emanstagram.storage.StorageService;
 import com.emanstagram.user.User;
@@ -49,6 +50,7 @@ public class PostService {
     private final PostAssembler assembler;
     private final AccessPolicy access;
     private final MediaValidationService validation;
+    private final UploadGuard uploadGuard;
     private final StorageService storage;
     private final NotificationService notifications;
     private final UserViews userViews;
@@ -59,7 +61,7 @@ public class PostService {
                        CommentRepository comments, CommentLikeRepository commentLikes,
                        NotificationRepository notificationRows, ReportRepository reports,
                        UserRepository users, PostAssembler assembler, AccessPolicy access,
-                       MediaValidationService validation, StorageService storage,
+                       MediaValidationService validation, UploadGuard uploadGuard, StorageService storage,
                        NotificationService notifications, UserViews userViews,
                        ObjectMapper json, PlatformTransactionManager txManager) {
         this.posts = posts;
@@ -73,6 +75,7 @@ public class PostService {
         this.assembler = assembler;
         this.access = access;
         this.validation = validation;
+        this.uploadGuard = uploadGuard;
         this.storage = storage;
         this.notifications = notifications;
         this.userViews = userViews;
@@ -103,32 +106,33 @@ public class PostService {
         if (location != null && location.length() > 160) {
             throw ApiException.badRequest("LOCATION_TOO_LONG", "Location is limited to 160 characters.");
         }
+        // The real type of each file, read from its bytes; the client's label is ignored.
+        List<String> types = new ArrayList<>();
+        long totalBytes = 0;
         for (MultipartFile file : files) {
-            if (validation.isVideo(file.getContentType())) {
-                validation.validateVideo(file);
-            } else {
-                validation.validateImage(file);
-            }
+            types.add(validation.validateImageOrVideo(file));
+            totalBytes += file.getSize();
         }
         List<MediaMeta> meta = parseMeta(metaJson, files.size());
         storage.requireConfigured();
+        uploadGuard.admit(author, totalBytes, files.size());
 
         List<String> uploaded = new ArrayList<>();
         try {
-            for (MultipartFile file : files) {
-                uploaded.add(storage.upload(StorageService.POSTS, author.getId(), file.getBytes(),
-                        file.getContentType(), validation.extensionFor(file.getContentType())));
+            for (int i = 0; i < files.size(); i++) {
+                uploaded.add(storage.upload(StorageService.POSTS, author.getId(), files.get(i).getBytes(),
+                        types.get(i), validation.extensionFor(types.get(i))));
             }
 
             return tx.execute(status -> {
                 PostKind kind = files.size() > 1 ? PostKind.CAROUSEL
-                        : validation.isVideo(files.get(0).getContentType()) ? PostKind.VIDEO : PostKind.IMAGE;
+                        : validation.isVideo(types.get(0)) ? PostKind.VIDEO : PostKind.IMAGE;
                 Post post = new Post(author, blankToNull(caption), kind,
                         visibility == null ? PostVisibility.PUBLIC : visibility, blankToNull(location));
                 for (int i = 0; i < files.size(); i++) {
                     MultipartFile file = files.get(i);
                     MediaMeta m = meta.get(i);
-                    post.addMedia(new PostMedia(i, uploaded.get(i), file.getContentType(), file.getSize(),
+                    post.addMedia(new PostMedia(i, uploaded.get(i), types.get(i), file.getSize(),
                             positive(m.width()), positive(m.height()), positive(m.durationMs()),
                             trimBlurhash(m.blurhash())));
                 }

@@ -14,8 +14,43 @@ public record EmanstagramProperties(
         Jwt jwt,
         Cors cors,
         Storage storage,
-        Media media
+        Media media,
+        Limits limits,
+        Security security
 ) {
+
+    /**
+     * Upload budgets that stop one account from filling the bucket.
+     *
+     * @param storageQuotaBytes          total media an account may hold at once
+     * @param dailyUploadBytes           bytes an account may upload per rolling 24 h
+     * @param dailyUploadCount           files an account may upload per rolling 24 h
+     * @param newAccountDailyUploadBytes the daily byte budget during {@code newAccountPeriod}
+     * @param newAccountDailyUploadCount the daily file budget during {@code newAccountPeriod}
+     * @param newAccountPeriod           how long an account counts as new
+     */
+    public record Limits(long storageQuotaBytes, long dailyUploadBytes, int dailyUploadCount,
+                         long newAccountDailyUploadBytes, int newAccountDailyUploadCount,
+                         Duration newAccountPeriod) {
+    }
+
+    /**
+     * @param rateLimitsEnabled per-IP and per-account request limits
+     * @param trustedProxyHops  how many proxies sit in front of the app. 0 uses the
+     *                          socket address; 1 (Railway, Render, Fly) uses the last
+     *                          X-Forwarded-For entry, which the platform's proxy adds
+     *                          and a client cannot forge
+     * @param turnstile         Cloudflare Turnstile keys; sign-up needs a bot check
+     *                          only when both are set
+     */
+    public record Security(boolean rateLimitsEnabled, int trustedProxyHops, Turnstile turnstile) {
+        public record Turnstile(String siteKey, String secretKey) {
+            public boolean enabled() {
+                return siteKey != null && !siteKey.isBlank() && secretKey != null && !secretKey.isBlank();
+            }
+        }
+    }
+
 
     public record Jwt(String secret, Duration accessTtl, Duration refreshTtl, String issuer) {
     }

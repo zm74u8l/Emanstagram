@@ -1,6 +1,8 @@
 package com.emanstagram.realtime;
 
 import com.emanstagram.auth.JwtService;
+import com.emanstagram.user.User;
+import com.emanstagram.user.UserRepository;
 import io.jsonwebtoken.Claims;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
@@ -38,9 +40,11 @@ public class StompAuthInterceptor implements ChannelInterceptor {
     }
 
     private final JwtService jwtService;
+    private final UserRepository users;
 
-    public StompAuthInterceptor(JwtService jwtService) {
+    public StompAuthInterceptor(JwtService jwtService, UserRepository users) {
         this.jwtService = jwtService;
+        this.users = users;
     }
 
     @Override
@@ -57,6 +61,11 @@ public class StompAuthInterceptor implements ChannelInterceptor {
             Claims claims = token == null ? null : jwtService.parseAccessToken(token).orElse(null);
             if (claims == null) {
                 throw new MessagingException("UNAUTHENTICATED");
+            }
+            boolean suspended = users.findById(UUID.fromString(claims.getSubject()))
+                    .map(User::isSuspended).orElse(true);
+            if (suspended) {
+                throw new MessagingException("ACCOUNT_SUSPENDED");
             }
             accessor.setUser(new StompPrincipal(UUID.fromString(claims.getSubject()),
                     claims.get("username", String.class)));

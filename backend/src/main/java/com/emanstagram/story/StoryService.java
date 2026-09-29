@@ -6,6 +6,7 @@ import com.emanstagram.common.Times;
 import com.emanstagram.social.AccessPolicy;
 import com.emanstagram.social.FollowRepository;
 import com.emanstagram.social.SocialService;
+import com.emanstagram.abuse.UploadGuard;
 import com.emanstagram.storage.MediaValidationService;
 import com.emanstagram.storage.StorageService;
 import com.emanstagram.user.User;
@@ -59,11 +60,12 @@ public class StoryService {
     private final AccessPolicy access;
     private final StorageService storage;
     private final MediaValidationService validation;
+    private final UploadGuard uploadGuard;
     private final TransactionTemplate tx;
 
     public StoryService(StoryRepository stories, StoryViewRepository views, FollowRepository follows,
                         UserRepository users, UserViews userViews, AccessPolicy access,
-                        StorageService storage, MediaValidationService validation,
+                        StorageService storage, MediaValidationService validation, UploadGuard uploadGuard,
                         PlatformTransactionManager txManager) {
         this.stories = stories;
         this.views = views;
@@ -73,32 +75,31 @@ public class StoryService {
         this.access = access;
         this.storage = storage;
         this.validation = validation;
+        this.uploadGuard = uploadGuard;
         this.tx = new TransactionTemplate(txManager);
     }
 
     public StoryItem create(User me, MultipartFile file, String caption, String backgroundHex) {
-        boolean video = validation.isVideo(file == null ? null : file.getContentType());
-        if (video) {
-            validation.validateStoryVideo(file);
-        } else {
-            validation.validateImage(file);
-        }
+        // Stories allow bigger videos than posts, so the bytes decide which rules apply.
+        boolean video = file != null && !file.isEmpty() && validation.isVideo(MediaValidationService.detect(file));
+        String type = video ? validation.validateStoryVideo(file) : validation.validateImage(file);
         if (caption != null && caption.length() > 300) {
             throw ApiException.badRequest("CAPTION_TOO_LONG", "Story captions are limited to 300 characters.");
         }
         String background = backgroundHex != null && HEX.matcher(backgroundHex).matches() ? backgroundHex : null;
+        uploadGuard.admit(me, file.getSize(), 1);
 
         String key;
         try {
             key = storage.upload(StorageService.STORIES, me.getId(), file.getBytes(),
-                    file.getContentType(), validation.extensionFor(file.getContentType()));
+                    type, validation.extensionFor(type));
         } catch (IOException ex) {
             throw ApiException.badRequest("UPLOAD_UNREADABLE", "That file could not be read. Please try again.");
         }
         try {
             return tx.execute(status -> {
                 Instant now = Times.now();
-                Story s = stories.save(new Story(me, key, file.getContentType(),
+                Story s = stories.save(new Story(me, key, type, file.getSize(),
                         caption == null || caption.isBlank() ? null : caption.trim(), background, now.plus(LIFETIME)));
                 return toItem(s, false, 0L);
             });
@@ -174,6 +175,14 @@ public class StoryService {
             throw ApiException.forbidden("NOT_YOUR_STORY", "You can only delete your own stories.");
         }
         removeAll(List.of(s));
+    }
+
+    /** Deletes every story an account has, and their files. Returns how many. */
+    @Transactional
+    public int deleteAllBy(UUID authorId) {
+        List<Story> all = stories.findAllByAuthorId(authorId);
+        removeAll(all);
+        return all.size();
     }
 
     /** Deletes expired stories and their files. Called by {@link StoryCleanupJob}. */

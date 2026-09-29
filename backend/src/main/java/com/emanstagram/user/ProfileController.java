@@ -1,5 +1,6 @@
 package com.emanstagram.user;
 
+import com.emanstagram.abuse.UploadGuard;
 import com.emanstagram.auth.AuthService;
 import com.emanstagram.auth.dto.AuthDtos.TokenResponse;
 import com.emanstagram.auth.dto.AuthDtos.UserResponse;
@@ -19,11 +20,20 @@ public class ProfileController {
     private final ProfileService profiles;
     private final AuthService auth;
     private final CurrentUser currentUser;
+    private final UploadGuard uploadGuard;
 
-    public ProfileController(ProfileService profiles, AuthService auth, CurrentUser currentUser) {
+    public ProfileController(ProfileService profiles, AuthService auth, CurrentUser currentUser,
+                             UploadGuard uploadGuard) {
         this.profiles = profiles;
         this.auth = auth;
         this.currentUser = currentUser;
+        this.uploadGuard = uploadGuard;
+    }
+
+    /** How much of the storage quota and today's upload budget the caller has used. */
+    @GetMapping("/me/storage")
+    public UploadGuard.Usage storage() {
+        return uploadGuard.usage(currentUser.require());
     }
 
     @GetMapping("/users/username/{username}")

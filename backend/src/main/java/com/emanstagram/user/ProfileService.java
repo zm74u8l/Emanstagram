@@ -7,6 +7,7 @@ import com.emanstagram.common.Times;
 import com.emanstagram.social.BlockRepository;
 import com.emanstagram.social.FollowRepository;
 import com.emanstagram.social.SocialService;
+import com.emanstagram.abuse.UploadGuard;
 import com.emanstagram.storage.MediaValidationService;
 import com.emanstagram.storage.StorageService;
 import com.emanstagram.story.StoryRepository;
@@ -33,16 +34,18 @@ public class ProfileService {
     private final StoryRepository stories;
     private final StorageService storage;
     private final MediaValidationService validation;
+    private final UploadGuard uploadGuard;
 
     public ProfileService(UserRepository users, FollowRepository follows, BlockRepository blocks,
                           StoryRepository stories, StorageService storage,
-                          MediaValidationService validation) {
+                          MediaValidationService validation, UploadGuard uploadGuard) {
         this.users = users;
         this.follows = follows;
         this.blocks = blocks;
         this.stories = stories;
         this.storage = storage;
         this.validation = validation;
+        this.uploadGuard = uploadGuard;
     }
 
     /**
@@ -109,14 +112,16 @@ public class ProfileService {
 
     @Transactional
     public UserResponse setAvatar(User me, MultipartFile file) {
-        validation.validateAvatar(file);
-        return replaceImage(me, file, true);
+        String type = validation.validateAvatar(file);
+        uploadGuard.admit(me, file.getSize(), 1);
+        return replaceImage(me, file, type, true);
     }
 
     @Transactional
     public UserResponse setBanner(User me, MultipartFile file) {
-        validation.validateImage(file);
-        return replaceImage(me, file, false);
+        String type = validation.validateImage(file);
+        uploadGuard.admit(me, file.getSize(), 1);
+        return replaceImage(me, file, type, false);
     }
 
     @Transactional
@@ -124,6 +129,7 @@ public class ProfileService {
         User user = users.findById(me.getId()).orElseThrow(SocialService::userNotFound);
         String old = user.getAvatarKey();
         user.setAvatarKey(null);
+        user.setAvatarBytes(0);
         AfterCommit.run(() -> storage.delete(old));
         return toResponse(user);
     }
@@ -133,6 +139,7 @@ public class ProfileService {
         User user = users.findById(me.getId()).orElseThrow(SocialService::userNotFound);
         String old = user.getBannerKey();
         user.setBannerKey(null);
+        user.setBannerBytes(0);
         AfterCommit.run(() -> storage.delete(old));
         return toResponse(user);
     }
@@ -157,20 +164,22 @@ public class ProfileService {
      * Uploads first, swaps the key, and deletes the old object only after the
      * commit, so a failure at any point leaves the previous picture intact.
      */
-    private UserResponse replaceImage(User me, MultipartFile file, boolean avatar) {
+    private UserResponse replaceImage(User me, MultipartFile file, String type, boolean avatar) {
         User user = users.findById(me.getId()).orElseThrow(SocialService::userNotFound);
         String key;
         try {
             key = storage.upload(StorageService.AVATARS, user.getId(), file.getBytes(),
-                    file.getContentType(), validation.extensionFor(file.getContentType()));
+                    type, validation.extensionFor(type));
         } catch (IOException ex) {
             throw ApiException.badRequest("UPLOAD_UNREADABLE", "That file could not be read. Please try again.");
         }
         String old = avatar ? user.getAvatarKey() : user.getBannerKey();
         if (avatar) {
             user.setAvatarKey(key);
+            user.setAvatarBytes(file.getSize());
         } else {
             user.setBannerKey(key);
+            user.setBannerBytes(file.getSize());
         }
         AfterCommit.run(() -> storage.delete(old));
         return toResponse(user);
