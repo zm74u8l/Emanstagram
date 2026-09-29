@@ -25,8 +25,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     @Query("""
             SELECT u FROM User u
-            WHERE (lower(u.username) LIKE lower(concat('%', :q, '%'))
-                   OR lower(coalesce(u.displayName, '')) LIKE lower(concat('%', :q, '%')))
+            WHERE (lower(u.username) LIKE lower(concat('%', :q, '%')) ESCAPE '!'
+                   OR lower(coalesce(u.displayName, '')) LIKE lower(concat('%', :q, '%')) ESCAPE '!')
               AND u.id <> :currentUser
             ORDER BY u.followerCount DESC, u.username ASC
             """)

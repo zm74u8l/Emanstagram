@@ -71,7 +71,7 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
     @Query("""
             SELECT p FROM Post p
             WHERE p.visibility = com.emanstagram.post.PostVisibility.PUBLIC
-              AND lower(p.caption) LIKE :pattern
+              AND lower(p.caption) LIKE :pattern ESCAPE '!'
               AND p.author.id NOT IN :hidden
               AND (p.createdAt < :ts OR (p.createdAt = :ts AND p.id < :id))
             ORDER BY p.createdAt DESC, p.id DESC
@@ -80,14 +80,19 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
                                 @Param("hidden") Collection<UUID> hidden,
                                 @Param("ts") Instant ts, @Param("id") UUID id, Pageable pageable);
 
-    /** Recent public captions containing a hashtag prefix, for search suggestions. */
+    /**
+     * Recent public captions containing a hashtag prefix, for search
+     * suggestions. Blocked authors are left out, as on the tag page itself.
+     */
     @Query("""
             SELECT p.caption FROM Post p
             WHERE p.visibility = com.emanstagram.post.PostVisibility.PUBLIC
-              AND lower(p.caption) LIKE :pattern
+              AND lower(p.caption) LIKE :pattern ESCAPE '!'
+              AND p.author.id NOT IN :hidden
             ORDER BY p.createdAt DESC
             """)
-    List<String> captionsMatching(@Param("pattern") String pattern, Pageable pageable);
+    List<String> captionsMatching(@Param("pattern") String pattern, @Param("hidden") Collection<UUID> hidden,
+                                  Pageable pageable);
 
     /** Everything an account has posted, for wiping a suspended abuser's content. */
     @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.author.id = :author")

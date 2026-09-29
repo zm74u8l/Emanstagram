@@ -1,6 +1,7 @@
 package com.emanstagram.search;
 
 import com.emanstagram.common.CurrentUser;
+import com.emanstagram.common.SqlLike;
 import com.emanstagram.common.TextTokens;
 import com.emanstagram.post.PostRepository;
 import com.emanstagram.social.AccessPolicy;
@@ -63,30 +64,33 @@ public class SearchController {
 
         List<TagResult> tags = List.of();
         List<UserSummary> people = List.of();
+        Set<UUID> hidden = access.hiddenFrom(me.getId());
 
         if (q.startsWith("#")) {
-            tags = tags(q.substring(1));
+            tags = tags(q.substring(1), hidden);
         } else {
             String term = q.startsWith("@") ? q.substring(1) : q;
             if (!term.isEmpty()) {
-                Set<UUID> hidden = access.hiddenFrom(me.getId());
-                List<User> found = users.search(term, me.getId(), PageRequest.of(0, 20)).getContent().stream()
+                List<User> found = users.search(SqlLike.escape(term), me.getId(), PageRequest.of(0, 20))
+                        .getContent().stream()
                         .filter(u -> !hidden.contains(u.getId())).toList();
                 people = userViews.summariesWithFollowing(found, me.getId());
-                tags = tags(term);
+                tags = tags(term, hidden);
             }
         }
         return new SearchResponse(people, tags);
     }
 
-    private List<TagResult> tags(String prefix) {
-        // Tags only ever contain letters, digits and underscores, which also
-        // keeps LIKE wildcards out of the pattern.
-        String p = prefix.toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]", "");
+    private List<TagResult> tags(String prefix, Set<UUID> hidden) {
+        // Tags only ever contain letters, digits and underscores (the same
+        // rule as TextTokens). The underscore is kept, so #my_tag is findable,
+        // and escaped, so it isn't read as LIKE's any-character wildcard.
+        String p = prefix.toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{N}_]", "");
         if (p.isEmpty()) {
             return List.of();
         }
-        List<String> captions = posts.captionsMatching("%#" + p + "%", PageRequest.of(0, CAPTION_SAMPLE));
+        List<String> captions = posts.captionsMatching("%#" + SqlLike.escape(p) + "%", hidden,
+                PageRequest.of(0, CAPTION_SAMPLE));
         Map<String, Long> counts = captions.stream()
                 .flatMap(c -> TextTokens.hashtags(c).stream())
                 .filter(t -> t.startsWith(p))

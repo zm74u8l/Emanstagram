@@ -124,6 +124,55 @@ class SocialApiTests extends ApiTestSupport {
     }
 
     @Test
+    void searchTreatsUnderscoreAndPercentAsPlainText() throws Exception {
+        Account seeker = register("sw");
+        Account underscored = register("qx_zq");
+        Account lookalike = register("qxyzq");
+
+        // Unescaped, "_" is LIKE's any-character wildcard and would match qxyzq too.
+        JsonNode res = read(mvc.perform(as(seeker, get("/api/search").param("q", "qx_z"))));
+        assertThat(res.path("users").findValuesAsText("username"))
+                .contains(underscored.username())
+                .doesNotContain(lookalike.username());
+
+        JsonNode percent = read(mvc.perform(as(seeker, get("/api/search").param("q", "%"))));
+        assertThat(percent.path("users")).isEmpty();
+    }
+
+    @Test
+    void tagsWithUnderscoresCanBeSearchedAndOpened() throws Exception {
+        Account a = register("us");
+        String tag = "my_tag" + System.nanoTime();
+        String lookalike = tag.replace("_", "x");
+        UUID post = createPost(a, 1, "PUBLIC", "#" + tag);
+        createPost(a, 1, "PUBLIC", "#" + lookalike);
+
+        JsonNode search = read(mvc.perform(as(a, get("/api/search").param("q", "#" + tag))));
+        assertThat(search.path("tags").findValuesAsText("tag"))
+                .contains(tag)
+                .doesNotContain(lookalike);
+
+        JsonNode page = read(mvc.perform(as(a, get("/api/tags/" + tag + "/posts"))));
+        assertThat(page.path("items")).hasSize(1);
+        assertThat(page.at("/items/0/id").asText()).isEqualTo(post.toString());
+    }
+
+    @Test
+    void hashtagSuggestionsLeaveOutBlockedAuthors() throws Exception {
+        Account a = register("hb");
+        Account b = register("hc");
+        String tag = "blk" + System.nanoTime();
+        createPost(b, 1, "PUBLIC", "#" + tag);
+
+        JsonNode before = read(mvc.perform(as(a, get("/api/search").param("q", "#" + tag))));
+        assertThat(before.path("tags").findValuesAsText("tag")).contains(tag);
+
+        mvc.perform(as(a, put("/api/users/" + b.id() + "/block"))).andExpect(status().isOk());
+        JsonNode after = read(mvc.perform(as(a, get("/api/search").param("q", "#" + tag))));
+        assertThat(after.path("tags")).isEmpty();
+    }
+
+    @Test
     void profileEditsValidateAndNormalise() throws Exception {
         Account a = register("ed");
         Account taken = register("taken");

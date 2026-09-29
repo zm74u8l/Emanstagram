@@ -2,6 +2,7 @@ package com.emanstagram.feed;
 
 import com.emanstagram.common.Cursor;
 import com.emanstagram.common.CursorPage;
+import com.emanstagram.common.SqlLike;
 import com.emanstagram.common.TextTokens;
 import com.emanstagram.post.Post;
 import com.emanstagram.post.PostAssembler;
@@ -74,7 +75,7 @@ public class FeedService {
         String tag = rawTag.replaceFirst("^#", "").toLowerCase(Locale.ROOT);
         int size = CursorPage.clamp(limit == null ? 24 : limit);
         Cursor c = Cursor.decodeDescending(cursor);
-        List<Post> rows = posts.taggedCandidates("%#" + escapeLike(tag) + "%", access.hiddenFrom(viewer.getId()),
+        List<Post> rows = posts.taggedCandidates("%#" + SqlLike.escape(tag) + "%", access.hiddenFrom(viewer.getId()),
                 c.createdAt(), c.id(), PageRequest.of(0, size + 1));
         return CursorPage.of(rows, size, PostService::cursorOf,
                 page -> assembler.assemble(page.stream().filter(p -> TextTokens.hasTag(p.getCaption(), tag)).toList(),
@@ -92,9 +93,5 @@ public class FeedService {
                 .map(m -> new MosaicTile(storage.publicUrl(m.getStorageKey()), m.getBlurhash(),
                         m.getWidth(), m.getHeight()))
                 .toList();
-    }
-
-    private static String escapeLike(String value) {
-        return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 }
