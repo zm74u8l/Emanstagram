@@ -136,14 +136,36 @@ export async function refreshAccessToken(): Promise<string | null> {
   return refreshInFlight
 }
 
+function claimsOf(token: string): { sub?: string; exp?: number } | null {
+  try {
+    return JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+  } catch {
+    return null
+  }
+}
+
 /** Seconds until the stored access token expires (negative once expired). */
 function secondsLeft(token: string): number {
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
-    return payload.exp - Date.now() / 1000
-  } catch {
-    return -1
-  }
+  const exp = claimsOf(token)?.exp
+  return exp === undefined ? -1 : exp - Date.now() / 1000
+}
+
+/** Whose session is stored right now: the user id in the access token, or null. */
+export function storedSessionUserId(): string | null {
+  const token = tokenStore.access
+  return (token && claimsOf(token)?.sub) || null
+}
+
+/**
+ * Calls `listener` when another tab signs in, signs out or refreshes. All
+ * tabs share one stored session, and the browser only tells the *other*
+ * tabs when it changes.
+ */
+export function onSessionChangedElsewhere(listener: () => void) {
+  window.addEventListener('storage', (e) => {
+    // A null key means the other tab cleared all storage.
+    if (e.key === ACCESS_KEY || e.key === null) listener()
+  })
 }
 
 /**

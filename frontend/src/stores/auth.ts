@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { post, tokenStore } from '@/lib/api'
+import { onSessionChangedElsewhere, post, storedSessionUserId, tokenStore } from '@/lib/api'
 import { disconnectRealtime } from '@/lib/realtime'
 import type { User } from '@/lib/types'
 
@@ -42,3 +42,15 @@ export const useAuth = create<AuthState>((set, get) => ({
     }
   },
 }))
+
+// Every tab shares one stored session. If another tab signs in as someone
+// else, this tab would keep showing the old account while its requests went
+// out as the new one: following "someone else" became following yourself,
+// and messages were sent from the wrong account. Reload so the tab shows who
+// it really is. A token refresh keeps the same user, so it doesn't reload.
+// While this tab is still checking its session, `user` is null and any
+// stored session reloads it, so the check can't finish on the old account.
+onSessionChangedElsewhere(() => {
+  const shown = useAuth.getState().user?.id ?? null
+  if (shown !== storedSessionUserId()) window.location.reload()
+})
