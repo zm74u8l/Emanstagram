@@ -182,7 +182,8 @@ emanstagram:
     service-role-key: ${SUPABASE_SECRET_KEY:}
     buckets:
       posts: ${SUPABASE_BUCKET_POSTS:posts}
-      avatars: ${SUPABASE_BUCKET_AVATAVARS:avatars}
+      # The old misspelled name still works, so existing .env files keep going.
+      avatars: ${SUPABASE_BUCKET_AVATARS:${SUPABASE_BUCKET_AVATAVARS:avatars}}
       stories: ${SUPABASE_BUCKET_STORIES:stories}
       messages: ${SUPABASE_BUCKET_MESSAGES:messages}
 
