@@ -17,7 +17,8 @@ real chat, real profiles, and media stored outside the database.
 | **Storage** | ✅ Two providers behind one interface: Supabase Storage (verified live) and S3-compatible for Cloudflare R2 (verified end to end against an S3 server; not yet against R2 itself). |
 | **Backend** | ✅ ~70 endpoints + STOMP WebSocket. 46 automated tests passing. |
 | **Frontend** | ✅ Redesigned. Every page is real, driven in Chromium against the live backend. |
-| **Deployed** | ❌ Local only. |
+| **Abuse protection** | ✅ Storage quota, daily upload budget, rate limits, Turnstile on sign-up, file-content checks, account suspension. Verified on Supabase and in the browser. |
+| **Deployed** | ❌ Local only. See [NEXT_STEPS.md](NEXT_STEPS.md). |
 
 ---
 
@@ -137,6 +138,21 @@ real phone rather than an emulated viewport.
 
 ---
 
+## Abuse protection
+
+| Layer | What it does |
+|---|---|
+| Storage quota | 1 GB per account, totalled from the database on every upload (survives restarts) |
+| Daily upload budget | 200 MB / 50 files per rolling 24 h, 50 MB / 15 files for accounts under a day old; counts deleted uploads so upload-delete loops don't escape it |
+| Rate limits | Sign-ups 5/h and logins 10/15 min per IP; 20 login attempts per account per 15 min; per-account limits on uploads, comments, messages, follows, likes, reports, search; 600 req/min per IP overall. 429 + `Retry-After` |
+| Bot check | Cloudflare Turnstile on sign-up once `TURNSTILE_*` keys are set; fails closed |
+| File contents | Type read from the file's first bytes, never the client's label; the detected type is what's stored |
+| Suspension | Blocks sign-in, refresh, every API call and the socket at once; can wipe the account's posts and stories |
+
+In memory (resets on restart, fine for one instance): rate-limit counters
+and the daily upload ledger. In the database (permanent): quota usage and
+suspensions. Several backend instances would need Redis for the former.
+
 ## Deliberately out of scope
 
 - **Private accounts / follow requests.** `users.is_private` exists but
@@ -150,10 +166,7 @@ real phone rather than an emulated viewport.
 
 ## Still to do
 
-- [ ] **Deploy.** Railway/Fly for the backend (not serverless:
-      WebSockets), Vercel/Cloudflare for the frontend.
-- [ ] Bump the CI actions (`checkout`, `setup-java`) to versions that
-      run on Node 24; GitHub flags the current ones as deprecated.
+- [ ] **Deploy.** Every manual step is in [NEXT_STEPS.md](NEXT_STEPS.md).
 - [ ] Hashtags are read out of captions (fine at this scale); a
       `post_tags` table would be the upgrade path.
 - [ ] Presence and the STOMP broker are in-memory, which is correct for
@@ -193,3 +206,6 @@ code.
     `create-drop` removed the tables under the others. Whether that hurt
     depended on class order, which differs between filesystems. Each
     context now gets its own database.
+15. **Sign-up could be submitted before the app knew a bot check was
+    required**, producing a confusing "complete the check" error. The
+    button now waits for the config. Found by the browser test.

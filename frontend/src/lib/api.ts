@@ -73,6 +73,17 @@ export const tokenStore = {
   },
 }
 
+/**
+ * Called when the server says this account is suspended. The session is
+ * useless from then on, so drop it and show the sign-in page with a notice.
+ */
+function onSuspended() {
+  tokenStore.clear()
+  if (!window.location.pathname.startsWith('/login')) {
+    window.location.assign('/login?suspended=1')
+  }
+}
+
 // ---- refresh coordination -----------------------------------------
 
 let refreshInFlight: Promise<string | null> | null = null
@@ -106,6 +117,7 @@ export async function refreshAccessToken(): Promise<string | null> {
       if (!res.ok) {
         tokenStore.clear()
         refreshListeners.forEach((l) => l(null))
+        if (res.status === 403) onSuspended()
         return null
       }
       const data: TokenResponse = await res.json()
@@ -184,6 +196,14 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
     response = await fetch(API_BASE + path, { ...rest, headers: finalHeaders, body: payload })
   } catch {
     throw new ApiError(0, { code: 'NETWORK', message: "You're offline, or the server can't be reached." })
+  }
+
+  // A suspension reported on an authenticated call ends the session. (The
+  // login endpoint also says ACCOUNT_SUSPENDED, but the form shows that one.)
+  if (response.status === 403 && token && !path.startsWith('/api/auth/login')) {
+    const peek = response.clone()
+    const body = (await peek.json().catch(() => null)) as ApiErrorBody | null
+    if (body?.error?.code === 'ACCOUNT_SUSPENDED') onSuspended()
   }
 
   if (response.status === 401 && !_isRetry && tokenStore.refresh) {

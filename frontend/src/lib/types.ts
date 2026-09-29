@@ -262,6 +262,32 @@ export interface MediaLimits {
   allowedImageTypes: string[]
   allowedVideoTypes: string[]
   storageEnabled: boolean
+  /** Present when the server requires a Cloudflare Turnstile check on sign-up. */
+  turnstileSiteKey?: string
+}
+
+/** GET /api/me/storage */
+export interface StorageUsage {
+  usedBytes: number
+  quotaBytes: number
+  uploadedTodayBytes: number
+  dailyLimitBytes: number
+  uploadsToday: number
+  dailyLimitFiles: number
+  newAccount: boolean
+}
+
+/** A row in the moderators' accounts list. */
+export interface AccountView {
+  user: UserSummary
+  email: string
+  role: Role
+  createdAt: string
+  postCount: number
+  followerCount: number
+  storageBytes: number
+  suspendedAt?: string
+  suspendedReason?: string
 }
 
 /** The single error shape produced by GlobalExceptionHandler. */

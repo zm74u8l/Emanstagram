@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { ApiError, post } from '@/lib/api'
 import { useAuth } from '@/stores/auth'
 import { AuthLayout, FormError } from '@/components/auth/AuthLayout'
@@ -17,6 +17,8 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
+  const [params] = useSearchParams()
+  const suspendedNotice = params.get('suspended') === '1'
 
   // RequireAuth stashes where the user was headed; send them back there.
   const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? '/'
@@ -48,7 +50,13 @@ export default function Login() {
       <p className="mt-1 text-[14px] text-fg-muted">Use your username or email address.</p>
 
       <form onSubmit={onSubmit} className="mt-7 space-y-4" noValidate>
-        {error && <FormError>{error}</FormError>}
+        {error ? (
+          <FormError>{error}</FormError>
+        ) : (
+          suspendedNotice && (
+            <FormError>You were signed out because this account has been suspended.</FormError>
+          )
+        )}
 
         <Input
           label="Username or email"

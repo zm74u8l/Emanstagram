@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, Monitor, Moon, Sun } from 'lucide-react'
 import { ApiError, del, errorMessage, get, patch, post, tokenStore, upload } from '@/lib/api'
 import { prepareAvatar, prepareImage } from '@/lib/media'
-import { cn } from '@/lib/utils'
+import { cn, formatBytes } from '@/lib/utils'
 import { toast, toastError } from '@/stores/toast'
 import { useAuth } from '@/stores/auth'
 import { applyAccent, applyTheme, type Theme } from '@/hooks/useTheme'
@@ -15,7 +15,7 @@ import { Input, Textarea } from '@/components/ui/Input'
 import { ConfirmDialog } from '@/components/ui/Dialog'
 import { Spinner } from '@/components/ui/Spinner'
 import { UserRow } from '@/components/social'
-import type { TokenResponse, User, UserSummary } from '@/lib/types'
+import type { StorageUsage, TokenResponse, User, UserSummary } from '@/lib/types'
 
 type Section = 'profile' | 'appearance' | 'account' | 'blocked'
 
@@ -401,6 +401,8 @@ function Account() {
 
   return (
     <div className="max-w-[560px]">
+      <StorageMeter />
+
       <Heading title="Change password" body="You'll stay signed in here. Every other device is signed out." />
       <form
         onSubmit={(e) => {
@@ -444,6 +446,29 @@ function Account() {
         confirmLabel="Log out everywhere"
       />
     </div>
+  )
+}
+
+/** How much of the storage quota and today's upload budget is used. */
+function StorageMeter() {
+  const { data } = useQuery({ queryKey: ['storage'], queryFn: () => get<StorageUsage>('/api/me/storage') })
+  if (!data) return null
+  const pct = Math.min(100, (data.usedBytes / data.quotaBytes) * 100)
+  return (
+    <section className="mb-12 border-b border-line pb-8">
+      <Heading title="Storage" body="Photos, videos, stories and chat attachments all count." />
+      <div className="h-2 overflow-hidden rounded-full bg-surface-muted">
+        <div className={cn('h-full rounded-full', pct > 90 ? 'bg-danger' : 'bg-fg')} style={{ width: `${Math.max(pct, 1)}%` }} />
+      </div>
+      <p className="mt-2 text-[13px] text-fg-muted">
+        <span className="font-semibold text-fg">{formatBytes(data.usedBytes)}</span> of {formatBytes(data.quotaBytes)} used
+      </p>
+      <p className="mt-1 text-[13px] text-fg-muted">
+        Today: {data.uploadsToday} of {data.dailyLimitFiles} uploads, {formatBytes(data.uploadedTodayBytes)} of{' '}
+        {formatBytes(data.dailyLimitBytes)}
+        {data.newAccount && ' (new accounts have a smaller daily allowance for their first day)'}
+      </p>
+    </section>
   )
 }
 

@@ -248,11 +248,21 @@ on `/user/queue/events` as `{ type, data }`: `message`, `typing`, `read`,
 `useRealtimeBridge` turns those events into React Query cache updates, so
 pages don't talk to the socket themselves.
 
+## Abuse protection
+
+Storage quota and daily upload budget per account, rate limits on sign-up,
+login and every write, Cloudflare Turnstile on sign-up, file types checked
+from their bytes, and account suspension. Details and defaults are in
+[STATUS.md](STATUS.md#abuse-protection); every setting is in
+`backend/.env.example`.
+
 ## Moderation
 
 Any user can report an account, post or comment. Moderators and admins
 review reports at `/admin`, where they can dismiss a report or remove the
-content. Roles are granted in SQL:
+content. From the **Accounts** tab they can sort accounts by storage used or
+newest, and suspend someone (optionally deleting their posts and stories).
+Roles are granted in SQL:
 
 ```sql
 UPDATE users SET role = 'MODERATOR' WHERE username = 'someone';

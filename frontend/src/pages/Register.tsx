@@ -1,9 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Check, X } from 'lucide-react'
-import { ApiError, get, post } from '@/lib/api'
+import { useQuery } from '@tanstack/react-query'
+import { ApiError, fetchMediaLimits, get, post } from '@/lib/api'
 import { useAuth } from '@/stores/auth'
 import { AuthLayout, FormError } from '@/components/auth/AuthLayout'
+import { Turnstile } from '@/components/auth/Turnstile'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Spinner } from '@/components/ui/Spinner'
@@ -24,6 +26,17 @@ export default function Register() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
   const [availability, setAvailability] = useState<Availability>({ state: 'idle' })
+
+  // The bot check, when the server asks for one. Tokens are single-use, so a
+  // failed attempt bumps `attempt` to remount the widget for a fresh token.
+  const { data: config, isPending: configPending } = useQuery({
+    queryKey: ['media-limits'],
+    queryFn: fetchMediaLimits,
+    staleTime: Infinity,
+  })
+  const siteKey = config?.turnstileSiteKey
+  const [captcha, setCaptcha] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
 
   // Check the username while the person types, so a clash is caught
   // before they've filled in the rest of the form.
@@ -57,6 +70,7 @@ export default function Register() {
         username: username.trim(),
         email: email.trim(),
         password,
+        captchaToken: captcha ?? undefined,
       })
       applyTokens(res.accessToken, res.refreshToken, res.user)
       navigate('/', { replace: true })
@@ -70,6 +84,9 @@ export default function Register() {
       } else {
         setError('Something went wrong. Please try again.')
       }
+      // The token was spent on this attempt; get a new one.
+      setCaptcha(null)
+      setAttempt((n) => n + 1)
     } finally {
       setSubmitting(false)
     }
@@ -142,7 +159,19 @@ export default function Register() {
           required
         />
 
-        <Button type="submit" size="lg" className="w-full" loading={submitting}>
+        {siteKey && (
+          <Turnstile key={attempt} siteKey={siteKey} onToken={setCaptcha} onError={setError} />
+        )}
+
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full"
+          loading={submitting}
+          // Wait until we know whether a bot check is needed, then for its token.
+          disabled={configPending || (Boolean(siteKey) && !captcha)}
+          title={siteKey && !captcha ? 'Checking you’re human…' : undefined}
+        >
           Create account
         </Button>
       </form>

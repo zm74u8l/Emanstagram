@@ -13,9 +13,10 @@ import { ConfirmDialog } from '@/components/ui/Dialog'
 import { EmptyState, Tabs } from '@/components/ui/bits'
 import { PageSpinner } from '@/components/ui/Spinner'
 import { InfiniteSentinel } from '@/components/InfiniteSentinel'
-import type { Page, Report, ReportReason } from '@/lib/types'
+import { Accounts, SuspendDialog } from '@/components/admin/Accounts'
+import type { Page, Report, ReportReason, UserSummary } from '@/lib/types'
 
-type Status = 'open' | 'resolved'
+type Status = 'open' | 'resolved' | 'accounts'
 
 const REASON_LABEL: Record<ReportReason, string> = {
   SPAM: 'Spam',
@@ -40,7 +41,7 @@ export default function Admin() {
     queryKey: ['admin-reports', status],
     queryFn: ({ pageParam }) => get<Page<Report>>(withCursor('/api/admin/reports', pageParam, `status=${status}`)),
     ...cursorPaging,
-    enabled: allowed,
+    enabled: allowed && status !== 'accounts',
   })
   const reports = flatten(query.data)
 
@@ -68,18 +69,21 @@ export default function Admin() {
         tabs={[
           { value: 'open', label: 'Open' },
           { value: 'resolved', label: 'Dismissed' },
+          { value: 'accounts', label: 'Accounts' },
         ]}
         value={status}
         onChange={setStatus}
         className="mb-4 justify-start"
       />
 
-      {query.isLoading && <PageSpinner />}
-      {query.isSuccess && reports.length === 0 && (
+      {status === 'accounts' && <Accounts />}
+
+      {status !== 'accounts' && query.isLoading && <PageSpinner />}
+      {status !== 'accounts' && query.isSuccess && reports.length === 0 && (
         <EmptyState title={status === 'open' ? 'All clear' : 'Nothing here'} body={status === 'open' ? 'No reports are waiting for review.' : undefined} />
       )}
 
-      <div className="space-y-3">
+      <div className={cn('space-y-3', status === 'accounts' && 'hidden')}>
         {reports.map((r) => (
           <ReportCard key={r.id} report={r} />
         ))}
@@ -92,6 +96,8 @@ export default function Admin() {
 function ReportCard({ report: r }: { report: Report }) {
   const qc = useQueryClient()
   const [confirm, setConfirm] = useState(false)
+  const [suspendTarget, setSuspendTarget] = useState<UserSummary | null>(null)
+  const offender = r.post?.author ?? r.comment?.author ?? r.targetUser
 
   const resolve = useMutation({
     mutationFn: (action: 'DISMISS' | 'REMOVE_CONTENT') => post(`/api/admin/reports/${r.id}/resolve`, { action }),
@@ -160,7 +166,12 @@ function ReportCard({ report: r }: { report: Report }) {
       </div>
 
       {!r.resolved && (
-        <div className="mt-4 flex justify-end gap-2">
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
+          {offender && (
+            <Button variant="ghost" size="sm" className="mr-auto text-danger" onClick={() => setSuspendTarget(offender)}>
+              Suspend @{offender.username}
+            </Button>
+          )}
           <Button variant="secondary" size="sm" loading={resolve.isPending && resolve.variables === 'DISMISS'} onClick={() => resolve.mutate('DISMISS')}>
             Dismiss
           </Button>
@@ -181,6 +192,7 @@ function ReportCard({ report: r }: { report: Report }) {
         body="It’s deleted for everyone and every report about it is closed."
         confirmLabel="Remove"
       />
+      <SuspendDialog user={suspendTarget} onClose={() => setSuspendTarget(null)} />
     </article>
   )
 }
